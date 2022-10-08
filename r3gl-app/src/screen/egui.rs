@@ -1,19 +1,20 @@
-use egui::{menu, TopBottomPanel};
 use wcore::app::Input;
-use wcore::egui::EGui;
+use wcore::egui::egui::EGui;
+use wcore::egui::view::View;
+use wcore::egui::window::Window;
 use wcore::graphics::context::Context;
 use color_eyre::eyre::Result;
 use wcore::screen::Screen;
 
-use crate::egui::view::View;
-use crate::egui::window::Window;
 use crate::state::State;
-use crate::windows::startup::StartupWindow;
-use crate::windows::timeline::TimelineWindow;
+use crate::view::menu::MenuView;
+use crate::view::window::startup::StartupWindow;
+use crate::view::window::timeline::TimelineWindow;
 
 pub struct EGuiScreen {
     egui: EGui,
     
+    menu: MenuView,
     startup: StartupWindow,
     timeline: TimelineWindow,
 }
@@ -23,6 +24,7 @@ impl EGuiScreen {
         return Ok(Self {
             egui: EGui::new(&graphics.device, &graphics.surface_configuration, graphics.scale_factor),
             
+            menu: MenuView::new(),
             startup: StartupWindow::new(),
             timeline: TimelineWindow::new(),
         });
@@ -33,47 +35,7 @@ impl EGuiScreen {
 impl Screen<State> for EGuiScreen {
     fn render(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context) {
         self.egui.render(view, graphics, |ctx: &egui::Context, graphics: &mut Context| {        
-            { // Menu bar
-                TopBottomPanel::top("menu").show(ctx, |ui| {
-                    menu::bar(ui, |ui| {
-                        ui.menu_button("File", |ui| {
-                            if ui.button("Open File").clicked() {
-                                ui.close_menu();
-                                todo!("drag & drop files instead for now");
-                            }
-
-                            if ui.button("Open Folder").clicked() {
-                                ui.close_menu();
-                                todo!("drag & drop files instead for now");
-                            }
-
-                            ui.menu_button("Open Recent", |ui| {
-                                let mut recent = vec![]; // I hate rust
-                                for project in &state.projects.recent {
-                                    recent.push((ui.button(&project.name), project.path.clone()));
-                                }
-
-                                for (button, path) in recent {
-                                    if button.clicked() {
-                                        state.editor.open_project(path, &mut state.projects);
-                                        ui.close_menu();
-                                    }
-                                }
-                            });
-
-                            ui.separator();
-
-                            if ui.button("Close Project").clicked() {
-                                state.editor.close_project(&mut state.projects);
-                                self.startup.set_visible(true);
-                                ui.close_menu();
-                            }
-
-                        });
-                    });
-                });
-            }
-
+            View::show(&mut self.menu, state, view, graphics, ctx);
             View::show(&mut self.startup, state, view, graphics, ctx);
             View::show(&mut self.timeline, state, view, graphics, ctx);
         });

@@ -1,11 +1,10 @@
 use egui::WidgetText;
-use wcore::graphics::context::Context;
 
-use crate::state::State;
+use crate::graphics::context::Context;
 
 use super::view::View;
 
-pub trait Window: View {
+pub trait Window<State>: View<State> {
     type Title: Into<WidgetText>;
     fn title() -> Self::Title;
 
@@ -19,7 +18,7 @@ pub trait Window: View {
     fn show(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context, ui: &mut egui::Ui);
 }
 
-impl<T: Window> View for T  {
+impl<T: Window<State>, State> View<State> for T  {
     fn show(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context, ctx: &egui::Context) {
         let mut show_startup = self.get_visible();
         Self::build(egui::Window::new(Self::title()), ctx)

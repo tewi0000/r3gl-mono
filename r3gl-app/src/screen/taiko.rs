@@ -134,8 +134,8 @@ impl Screen<State> for TaikoScreen {
                     }
 
                     self.mesh_circle.bake_instances(&graphics.device);
+                    self.mesh_circle.draw(&mut render_pass);
                 }
-                self.mesh_circle.draw(&mut render_pass);
             });
         });
     }

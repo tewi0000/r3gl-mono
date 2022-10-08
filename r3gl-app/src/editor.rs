@@ -6,6 +6,7 @@ use wcore::timer::Timer;
 use crate::{project::projects::Projects, beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject, parser::osu_taiko::OsuTaikoParser}};
 
 pub struct Editor {
+    // TODO: replace this with game specific editor
     pub beatmap: Option<Beatmap<HitObject>>,
     
     // Audio/Time managment
@@ -50,6 +51,9 @@ impl Editor {
 
     pub fn close_project(&mut self, projects: &mut Projects) {
         projects.current = None;
+        self.beatmap = None;
+
+        self.length = 0;
 
         self.player.stop();
         self.paused = true;

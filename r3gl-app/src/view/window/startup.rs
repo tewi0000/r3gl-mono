@@ -1,7 +1,7 @@
 use egui::{RichText, Link, TextStyle, ScrollArea, Label, Sense, Align2, vec2};
-use wcore::graphics::context::Context;
+use wcore::{graphics::context::Context, egui::window::Window};
 
-use crate::{egui::window::Window, state::State};
+use crate::state::State;
 
 pub struct StartupWindow {
     visible: bool
@@ -15,7 +15,7 @@ impl StartupWindow {
     }
 }
 
-impl Window for StartupWindow {
+impl Window<State> for StartupWindow {
     type Title = &'static str;
     fn title() -> Self::Title {
         return "Startup";
