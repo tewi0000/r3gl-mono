@@ -1,0 +1,14 @@
+[package]
+name = "r3gl-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wcore = { path = "../wcore" }
+r3gl-audio = { path = "../r3gl-audio" }
+r3gl-app = { path = "../r3gl-app" }
+color-eyre = "0.6.2"
+log = "0.4.17"
+env_logger = "0.9.1"
+str-macro = "1.0.0"
+dynamic-arena = "0.1.6"
