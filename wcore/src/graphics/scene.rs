@@ -20,11 +20,6 @@ impl Scene2D {
         };
     }
 
-    pub fn destruct(&mut self) -> (&ProjectionOrthographic, &mut Camera2D, &wgpu::BindGroup, &Uniform) {
-        // Try doing self.group() and crash into poor ergonomics
-        return (&self.projection, &mut self.camera, &self.uniform.group(), &self.uniform);
-    }
-
     pub fn update(&self, queue: &wgpu::Queue) {
         Bindable::update(self, queue, &(self.apply()).into());
     }

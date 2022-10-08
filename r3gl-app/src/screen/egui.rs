@@ -55,7 +55,7 @@ impl Screen<State> for EGuiScreen {
 
                                 for (button, path) in recent {
                                     if button.clicked() {
-                                        state.editor.open_project(path, &mut state.projects, &state.player);
+                                        state.editor.open_project(path, &mut state.projects);
                                         ui.close_menu();
                                     }
                                 }
@@ -64,7 +64,7 @@ impl Screen<State> for EGuiScreen {
                             ui.separator();
 
                             if ui.button("Close Project").clicked() {
-                                state.editor.close_project(&mut state.projects, &mut state.player);
+                                state.editor.close_project(&mut state.projects);
                                 self.startup.set_visible(true);
                                 ui.close_menu();
                             }
@@ -88,7 +88,7 @@ impl Screen<State> for EGuiScreen {
 
         match input {
             Input::DroppedFile(file) => {
-                state.editor.open_project(file, &mut state.projects, &state.player);
+                state.editor.open_project(file, &mut state.projects);
                 self.startup.set_visible(false);
             }
 
@@ -99,7 +99,7 @@ impl Screen<State> for EGuiScreen {
                     match keycode {
                         VirtualKeyCode::Space => {
                             if input.state == ElementState::Pressed {
-                                state.editor.pause(&mut state.player);
+                                state.editor.pause();
                             }
                         }
     

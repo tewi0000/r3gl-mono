@@ -84,8 +84,6 @@ impl Screen<State> for TaikoScreen {
             utils::render(encoder, &view, None, |mut render_pass| {
                 let scale = 0.8;
             
-                // let (projection, camera, scene_group, uniform) = self.scene.destruct();
-
                 /* Hit position */
                 self.pipeline_model.attach(&mut render_pass);  
 
@@ -103,14 +101,7 @@ impl Screen<State> for TaikoScreen {
                 self.pipeline_taiko.attach(&mut render_pass);
 
                 // Scene
-                let time = if !state.player.is_paused() {
-                    let now = instant::Instant::now();
-                    let diff = now.duration_since(state.editor.last_pause).as_millis() + state.editor.last_time;
-                    diff as u32
-                } else {
-                    state.player.get_time().as_millis() as u32
-                };
-
+                let time = state.editor.time();
                 self.scene.camera.position.x = -((time as f32 * scale) - OFFSET);
                 self.pipeline_taiko.update(&graphics.queue, &self.scene);
                 
