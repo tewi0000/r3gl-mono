@@ -30,11 +30,8 @@ impl Editor {
 
     // Project Management
     pub fn open_project(&mut self, path: impl AsRef<Path>, projects: &mut Projects) {
-        projects.open(&path);
-        
         // Parse beatmap
-        let data = fs::read_to_string(&path).unwrap();
-        let beatmap = OsuTaikoParser::parse(&data);
+        let beatmap = projects.open(&path);
         
         // Load audio
         let mp3 = path.as_ref().parent().unwrap().join(&beatmap.audio);
