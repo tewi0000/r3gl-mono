@@ -21,9 +21,9 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) clip_pos : vec4<f32>,
-    @location(1)       uv       : vec2<f32>,
-    @location(9)       color    : vec4<f32>,
-    @location(10)      finisher : u32,
+    @location(0)       uv       : vec2<f32>,
+    @location(1)       color    : vec4<f32>,
+    @location(2)       finisher : u32,
 }
 
 @vertex
