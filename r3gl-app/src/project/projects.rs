@@ -46,7 +46,9 @@ impl Projects {
             if let Some(project_info) = project_info {
                 std::mem::swap(&mut first[0], project_info);
             } else {
-                recent.insert(0, project.info());
+                if first[0].path != path {
+                    recent.insert(0, project.info());
+                }
             }
         } else {
             if !recent.iter().any(|proj| proj.path == path) {
