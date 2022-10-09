@@ -59,27 +59,25 @@ impl Editor {
 
     // Time
     pub fn pause(&mut self) {
-        if let Ok(length) = self.player.length() {
-            let time = self.player.get_time();
-            if time >= length {
-                self.player.set_time(Duration::ZERO);
-                self.time.reset(Duration::ZERO);
-            }
+        if self.player.length().is_err() {
+            return;
+        }
 
-            self.player.pause();
-            self.paused = !self.paused;
-            if !self.paused {
-                self.time.reset(time);
-            }
+        let time = self.player.get_time();
+        self.paused = !self.paused;
+        self.player.pause();
 
+        if time.as_millis() as u32 >= self.length {
+            self.player.set_time(Duration::ZERO);
+            self.time.reset(Duration::ZERO);
         } else {
-            self.player.set_paused(true);
-            self.paused = true;
+            self.time.reset(time);
         }
     }
 
     pub fn set_paused(&mut self, value: bool) {
         self.player.set_paused(value);
+        self.paused = value;
         if !value {
             self.time.reset(self.time_duration());
         }
