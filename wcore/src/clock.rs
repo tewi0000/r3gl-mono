@@ -46,6 +46,7 @@ impl Clock for SyncClock {
 
             if time >= self.length {
                 self.paused = true;
+                self.last_time = self.length;
             }
 
             return time;
