@@ -43,8 +43,8 @@ impl Window<State> for TimelineWindow {
 
     #[allow(unused_variables)]
     fn show(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context, ui: &mut egui::Ui) {
-        let time = state.editor.time();
-        let length = state.editor.length();
+        let time = state.editor.get_time();
+        let length = state.editor.get_length();
         
         ui.horizontal(|ui| {
             ui.set_enabled(state.editor.beatmap.is_some());
@@ -53,7 +53,7 @@ impl Window<State> for TimelineWindow {
             let play_button_text = if state.editor.is_paused() { "▶" } else { "⏸" };
             let play_button = ui.add_sized(vec2(24.0, ui.available_height()), Button::new(play_button_text));
             if play_button.clicked() {
-                state.editor.pause();
+                state.editor.toggle_paused();
             };
 
             // Time display
@@ -66,7 +66,7 @@ impl Window<State> for TimelineWindow {
             let style = ui.style_mut();
             style.spacing.slider_width = slider_width;
 
-            let mut time64 = time as u64;
+            let mut time64 = state.editor.get_time() as u64;
             let slider = Slider::new(&mut time64, 0 ..= (length as u64)).show_value(false);
             let slider = ui.add(slider);               
 

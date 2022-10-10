@@ -1,7 +1,7 @@
 use std::{path::Path, time::Duration, fs};
 
 use r3gl_audio::{Audio, Player};
-use wcore::timer::Timer;
+use wcore::{timer::Timer, clock::{SyncClock, Clock}};
 
 use crate::{project::projects::Projects, beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject, parser::osu_taiko::OsuTaikoParser}};
 
@@ -11,9 +11,7 @@ pub struct Editor {
     
     // Audio/Time managment
     player: Player,
-    paused: bool,
-    length: u32,
-    time: Timer,
+    clock: SyncClock,
 }
 
 impl Editor {
@@ -22,9 +20,7 @@ impl Editor {
             beatmap: None,
 
             player: Player::new().unwrap(),
-            paused: true,
-            length: 0,
-            time: Timer::new(),
+            clock: SyncClock::new(),
         };
     }
 
@@ -38,70 +34,58 @@ impl Editor {
         self.player.load(&Audio::from_file(mp3).unwrap()).unwrap();
         
         // Cache length
-        self.length = self.player.length()
+        self.clock.set_length(self.player.length()
             .ok().unwrap_or(Duration::ZERO)
-            .as_millis() as u32;
+            .as_millis() as u32);
 
         // Set as current
         self.beatmap = Some(beatmap);
     }
-
     pub fn close_project(&mut self, projects: &mut Projects) {
         projects.current = None;
         self.beatmap = None;
 
-        self.length = 0;
-
+        let time = self.player.get_time();
+        self.clock.set_paused(true, time.as_millis() as u32);
+        self.clock.set_length(0);
         self.player.stop();
-        self.paused = true;
         self.player.set_time(Duration::ZERO);
     }
 
     // Time
-    pub fn pause(&mut self) {
-        if self.player.length().is_err() {
+    pub fn toggle_paused(&mut self) {
+          if self.player.length().is_err() {
             return;
         }
 
         let time = self.player.get_time();
-        self.paused = !self.paused;
+        self.clock.toggle_paused(time.as_millis() as u32);
         self.player.pause();
 
-        if time.as_millis() as u32 >= self.length {
+        if time.as_millis() as u32 >= self.clock.get_length() {
+            self.clock.set_time(0);
             self.player.set_time(Duration::ZERO);
-            self.time.reset(Duration::ZERO);
-        } else {
-            self.time.reset(time);
         }
     }
-
     pub fn set_paused(&mut self, value: bool) {
+        let time = self.player.get_time();
+        self.clock.set_paused(value, time.as_millis() as u32);
         self.player.set_paused(value);
-        self.paused = value;
-        if !value {
-            self.time.reset(self.time_duration());
-        }
+    }
+    pub fn is_paused(&self) -> bool {
+        return self.clock.is_paused();
     }
 
     pub fn set_time(&mut self, time: u32) {
         let time = Duration::from_millis(time as u64);
+        self.clock.set_time(time.as_millis() as u32);
         self.player.set_time(time);
-        self.time.reset(time);
+    }
+    pub fn get_time(&mut self) -> u32 {
+        return self.clock.get_time();
     }
 
-    pub fn time(&self) -> u32 {
-        return self.time.sync(self.player.is_paused(), self.player.get_time()).as_millis() as u32;
-    }
-
-    fn time_duration(&self) -> Duration {
-        return self.time.sync(self.player.is_paused(), self.player.get_time());
-    }
-
-    pub fn length(&self) -> u32 {
-        return self.length;
-    }
-
-    pub fn is_paused(&self) -> bool {
-        return self.paused;
+    pub fn get_length(&self) -> u32 {
+        return self.clock.get_length();
     }
 }

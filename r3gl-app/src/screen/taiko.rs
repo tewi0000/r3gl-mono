@@ -101,7 +101,7 @@ impl Screen<State> for TaikoScreen {
                 self.pipeline_taiko.attach(&mut render_pass);
 
                 // Scene
-                let time = state.editor.time();
+                let time = state.editor.get_time();
                 self.scene.camera.position.x = -((time as f32 * scale) - OFFSET);
                 self.pipeline_taiko.update(&graphics.queue, &self.scene);
                 

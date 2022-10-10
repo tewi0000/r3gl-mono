@@ -61,7 +61,7 @@ impl Screen<State> for EGuiScreen {
                     match keycode {
                         VirtualKeyCode::Space => {
                             if input.state == ElementState::Pressed {
-                                state.editor.pause();
+                                state.editor.toggle_paused();
                             }
                         }
     
