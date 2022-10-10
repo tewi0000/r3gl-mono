@@ -45,8 +45,6 @@ impl View<State> for MenuView {
 
                     if ui.button("Close Project").clicked() {
                         state.editor.close_project(&mut state.projects);
-                        // TODO: consider using messages for things like this, currently broken :D
-                        // state.show_startup.set_visible(true);
                         ui.close_menu();
                     }
 

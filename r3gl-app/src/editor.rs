@@ -1,7 +1,7 @@
 use std::{path::Path, time::Duration, fs};
 
 use r3gl_audio::{Audio, Player};
-use wcore::{timer::Timer, clock::{SyncClock, Clock}};
+use wcore::{clock::{SyncClock, Clock}};
 
 use crate::{project::projects::Projects, beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject, parser::osu_taiko::OsuTaikoParser}};
 
@@ -33,7 +33,8 @@ impl Editor {
         let mp3 = path.as_ref().parent().unwrap().join(&beatmap.audio);
         self.player.load(&Audio::from_file(mp3).unwrap()).unwrap();
         
-        // Cache length
+        // Update clock data
+        self.clock.set_time(0);
         self.clock.set_length(self.player.length()
             .ok().unwrap_or(Duration::ZERO)
             .as_millis() as u32);

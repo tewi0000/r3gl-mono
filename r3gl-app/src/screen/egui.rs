@@ -35,6 +35,8 @@ impl EGuiScreen {
 impl Screen<State> for EGuiScreen {
     fn render(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context) {
         self.egui.render(view, graphics, |ctx: &egui::Context, graphics: &mut Context| {        
+            self.startup.set_visible(state.projects.current.is_none());
+            
             View::show(&mut self.menu, state, view, graphics, ctx);
             View::show(&mut self.startup, state, view, graphics, ctx);
             View::show(&mut self.timeline, state, view, graphics, ctx);

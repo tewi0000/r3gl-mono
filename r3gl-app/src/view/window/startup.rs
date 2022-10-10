@@ -96,7 +96,6 @@ impl Window<State> for StartupWindow {
                     for (button, path) in recent {
                         if button.clicked() {
                             state.editor.open_project(&path, &mut state.projects);
-                            self.set_visible(false);
                         }
                     }
                 });
