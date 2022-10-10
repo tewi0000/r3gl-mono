@@ -1,6 +1,6 @@
 use instant::Instant;
 use winit::dpi::LogicalSize;
-use winit::event::{DeviceEvent, Event, WindowEvent};
+use winit::event::{DeviceEvent, Event, WindowEvent, ModifiersState, ElementState};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
@@ -28,6 +28,7 @@ impl<'a, State> App<'a, State> {
             init(&mut self, &mut graphics);
 
             let mut focused = false;
+            let mut modifiers = ModifiersState::empty();
             event_loop.run_return(move |event, _, control_flow| {
                 match event {
                     Event::MainEventsCleared => {
@@ -36,8 +37,16 @@ impl<'a, State> App<'a, State> {
 
                     Event::RedrawRequested(window_id) if window_id == window.id() => {
                         let now = Instant::now();
-                        self.update(&mut state, now);
-                        self.render(&mut state, &mut graphics);
+                        if let Ok(output) = graphics.surface.get_current_texture() {
+                            let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+                
+                            for screen in &mut self.screens {
+                                screen.update(&mut state, now);
+                                screen.render(&mut state, &view, &mut graphics);
+                            }
+                
+                            output.present();
+                        }
                     }
 
                     Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta, }, .. }  => {
@@ -64,8 +73,12 @@ impl<'a, State> App<'a, State> {
                                 self.scale(&mut state, &mut graphics, scale_factor);
                             }
 
-                            dropped_file @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &dropped_file); }
-                            _ => if focused { self.input(&mut state, &event); }
+                            WindowEvent::ModifiersChanged(new_modifiers) => {
+                                modifiers = new_modifiers;
+                            }
+
+                            dropped_file @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &dropped_file, modifiers); }
+                            _ => if focused { self.input(&mut state, &event, modifiers); }
                         }
                     }
 
@@ -73,24 +86,6 @@ impl<'a, State> App<'a, State> {
                 }
             });
         });
-    }
-
-    fn update(&mut self, state: &mut State, now: Instant) {
-        for screen in &mut self.screens {
-            screen.update(state, now);
-        }
-    }
-
-    fn render(&mut self, state: &mut State, graphics: &mut Context) {
-        if let Ok(output) = graphics.surface.get_current_texture() {
-            let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-            for screen in &mut self.screens {
-                screen.render(state, &view, graphics);
-            }
-
-            output.present();
-        }
     }
 
     fn resize(&mut self, state: &mut State, graphics: &mut Context, width: i32, height: i32) {
@@ -120,9 +115,20 @@ impl<'a, State> App<'a, State> {
         }
     }
 
-    fn input(&mut self, state: &mut State, input: &Input) {
+    fn input(&mut self, state: &mut State, input: &Input, modifiers: ModifiersState) {
         for screen in &mut self.screens {
             screen.input(state, input);
+            if let WindowEvent::KeyboardInput { input, .. } = input {
+                if let Some(key) = input.virtual_keycode {
+                    if let Some(actions) = screen.actions() {
+                        if let Some(action) = actions.get_mut(&(key, modifiers)) {
+                            if input.state == ElementState::Pressed {
+                                action.invoke(state);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

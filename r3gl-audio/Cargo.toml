@@ -11,3 +11,4 @@ log = "0.4.17"
 cpal = "0.14.0"
 samplerate = "0.2.4"
 symphonia = { version = "0.5.1", features = ["mp3"] }
+instant = "0.1.12"

@@ -1,10 +1,13 @@
+use maplit::hashmap;
 use wcore::app::Input;
 use wcore::egui::egui::EGui;
 use wcore::egui::view::View;
 use wcore::egui::window::Window;
 use wcore::graphics::context::Context;
 use color_eyre::eyre::Result;
-use wcore::screen::Screen;
+use wcore::screen::{Screen, Actions, Action};
+use winit::event::{VirtualKeyCode, ModifiersState};
+use str_macro::str;
 
 use crate::state::State;
 use crate::view::menu::MenuView;
@@ -17,16 +20,26 @@ pub struct EGuiScreen {
     menu: MenuView,
     startup: StartupWindow,
     timeline: TimelineWindow,
+
+    actions: Actions<State>,
 }
 
 impl EGuiScreen {
     pub fn new(graphics: &Context) -> Result<Self> {
+        let actions = hashmap! {
+            (VirtualKeyCode::Space, ModifiersState::empty()) => Action::new(str!(""), str!(), |state: &mut State| {
+                state.editor.toggle_paused();
+            }),
+        };
+
         return Ok(Self {
             egui: EGui::new(&graphics.device, &graphics.surface_configuration, graphics.scale_factor),
             
             menu: MenuView::new(),
             startup: StartupWindow::new(),
             timeline: TimelineWindow::new(),
+            
+            actions
         });
     }
 }
@@ -56,23 +69,6 @@ impl Screen<State> for EGuiScreen {
                 self.startup.set_visible(false);
             }
 
-            Input::KeyboardInput { input, .. } => {
-                use winit::event::ElementState;
-                use winit::event::VirtualKeyCode;
-                if let Some(keycode) = input.virtual_keycode {
-                    match keycode {
-                        VirtualKeyCode::Space => {
-                            if input.state == ElementState::Pressed {
-                                state.editor.toggle_paused();
-                            }
-                        }
-    
-                        _ => {}
-                    }
-                }
-
-            }
-
             Input::MouseWheel { device_id, delta, phase, .. } => {
                 
             }
@@ -84,5 +80,9 @@ impl Screen<State> for EGuiScreen {
     #[allow(unused_variables)]
     fn resize(&mut self, state: &mut State, graphics: &mut Context, width: i32, height: i32) {
         self.egui.resize(width, height);
+    }
+
+    fn actions(&mut self) -> Option<&mut Actions<State>> {
+        return Some(&mut self.actions);
     }
 }

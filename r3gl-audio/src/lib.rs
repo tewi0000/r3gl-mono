@@ -1,10 +1,10 @@
 use fragile::Sticky;
+use instant::Duration;
 
 use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::time::Duration;
 
 use color_eyre::eyre::{Report, Result, ContextCompat};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
