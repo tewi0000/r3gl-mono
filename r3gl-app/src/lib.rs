@@ -1,5 +1,3 @@
-#![feature(ptr_as_uninit)]
-
 use std::{path::Path, fs::{OpenOptions, self}, io::Write, env};
 
 use log::{error, warn};
