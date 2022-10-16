@@ -1,2 +1,2 @@
-pub mod projects;
+pub mod project_manager;
 pub mod project;

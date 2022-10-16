@@ -4,7 +4,7 @@ use instant::Duration;
 use r3gl_audio::{Audio, Player};
 use wcore::{clock::{SyncClock, Clock}};
 
-use crate::{project::projects::Projects, beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject, parser::osu_taiko::OsuTaikoParser}};
+use crate::{project::project_manager::ProjectManager, beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject}};
 
 pub struct Editor {
     // TODO: replace this with game specific editor
@@ -26,7 +26,7 @@ impl Editor {
     }
 
     // Project Management
-    pub fn open_project(&mut self, path: impl AsRef<Path>, projects: &mut Projects) {
+    pub fn open_project(&mut self, path: impl AsRef<Path>, projects: &mut ProjectManager) {
         // Parse beatmap
         let beatmap = projects.open(&path);
         
@@ -43,7 +43,7 @@ impl Editor {
         // Set as current
         self.beatmap = Some(beatmap);
     }
-    pub fn close_project(&mut self, projects: &mut Projects) {
+    pub fn close_project(&mut self, projects: &mut ProjectManager) {
         projects.current = None;
         self.beatmap = None;
 

@@ -1,7 +1,7 @@
 use cgmath::{vec3, Quaternion, Zero, vec4};
 use wcore::{screen::Screen, app::Input, graphics::{context::Context, bindable::Bindable, texture::Texture, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}}, utils};
 
-use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}};
+use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier};
 use color_eyre::eyre::Result;
 
 const OFFSET: f32 = 200.0;
@@ -48,9 +48,9 @@ impl TaikoScreen {
             color: vec4(1.0, 1.0, 1.0, 0.5)
         }]);
 
-        let texture      = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircle.png"), wgpu::FilterMode::Linear, "circle")?;
+        let circle       = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircle.png"), wgpu::FilterMode::Linear, "circle")?;
         let overlay      = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircleoverlay.png"), wgpu::FilterMode::Linear, "overlay")?;
-        let big_texture  = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircle.png"), wgpu::FilterMode::Linear, "big_circle")?;
+        let big_circle   = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircle.png"), wgpu::FilterMode::Linear, "big_circle")?;
         let big_overlay  = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircleoverlay.png"), wgpu::FilterMode::Linear, "big_overlay")?;
         let hit_position = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("approachcircle.png"), wgpu::FilterMode::Linear, "big_overlay")?;
 
@@ -69,16 +69,16 @@ impl TaikoScreen {
             mesh_circle,
             mesh_model,
             
-            circle: texture,
+            circle,
             overlay,
-            big_circle: big_texture,
+            big_circle,
             big_overlay,
             hit_position,
         });
     }
 }
 
-impl Screen<State> for TaikoScreen {
+impl Screen<State, Identifier> for TaikoScreen {
     fn render(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context) {
         utils::submit(&graphics.queue, &graphics.device, |encoder| {
             utils::render(encoder, &view, None, |mut render_pass| {

@@ -1875,10 +1875,12 @@ dependencies = [
  "dynamic-arena",
  "env_logger",
  "log",
+ "maplit",
  "r3gl-app",
  "r3gl-audio",
  "str-macro",
  "wcore",
+ "winit",
 ]
 
 [[package]]

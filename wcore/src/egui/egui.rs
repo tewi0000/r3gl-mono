@@ -125,7 +125,7 @@ pub struct EGui {
 impl EGui {
     pub fn new(device: &wgpu::Device, surface_config: &wgpu::SurfaceConfiguration, scale_factor: f64) -> Self {
         return Self {
-            pps         : 1.0,
+            pps         : scale_factor as f32,
             pointer     : (0.0, 0.0),
             modfiers    : ModifiersState::default(),
             egui_ctx    : egui::Context::default(),

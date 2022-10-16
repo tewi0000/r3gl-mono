@@ -7,7 +7,7 @@ use crate::beatmap::{parser::osu_taiko::OsuTaikoParser, beatmap::Beatmap, taiko:
 use super::project::Project;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Projects {
+pub struct ProjectManager {
     #[serde(skip)]
     pub current: Option<Project>,
 
@@ -21,7 +21,7 @@ pub struct ProjectInfo {
     pub name: String,
 }
 
-impl Default for Projects {
+impl Default for ProjectManager {
     fn default() -> Self {
         return Self {
             current: None,
@@ -30,7 +30,7 @@ impl Default for Projects {
     }
 }
 
-impl Projects {
+impl ProjectManager {
     pub fn open(&mut self, path: impl AsRef<Path>) -> Beatmap<HitObject> {
         // TODO: handle errors case properly
         let path = path.as_ref();

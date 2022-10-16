@@ -4,23 +4,25 @@ use winit::event::{DeviceEvent, Event, WindowEvent, ModifiersState, ElementState
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
+use crate::bindings::BindingManager;
 use crate::graphics::context::Context;
-use crate::screen::Screen;
+use crate::screen::{Screen, Identifier};
 
-pub struct App<'a, State> {
+pub struct App<'a, S, I: Identifier> {
     pub title: String,
 
     pub width: i32,
     pub height: i32,
 
-    pub screens: Vec<&'a mut dyn Screen<State>>,
+    pub screens: Vec<&'a mut dyn Screen<S, I>>,
+    pub bindings: BindingManager<S, I>,
 }
 
 // TODO: make a custom input type
 pub type Input<'a> = WindowEvent<'a>;
 
-impl<'a, State> App<'a, State> {
-    pub fn run(mut self, mut state: State, init: impl FnOnce(&mut Self, &mut Context)) {
+impl<'a, S, I: Identifier> App<'a, S, I> {
+    pub fn run(mut self, mut state: S, init: impl FnOnce(&mut Self, &mut Context)) {
         pollster::block_on(async {
             let mut event_loop = EventLoop::new();
             let window = create_window(&event_loop, self.width, self.height);
@@ -88,7 +90,7 @@ impl<'a, State> App<'a, State> {
         });
     }
 
-    fn resize(&mut self, state: &mut State, graphics: &mut Context, width: i32, height: i32) {
+    fn resize(&mut self, state: &mut S, graphics: &mut Context, width: i32, height: i32) {
         if width > 0 && height > 0 {
             self.width = width;
             self.height = height;
@@ -102,26 +104,26 @@ impl<'a, State> App<'a, State> {
         }
     }
 
-    fn scale(&mut self, state: &mut State, graphics: &mut Context, scale: f64) {
+    fn scale(&mut self, state: &mut S, graphics: &mut Context, scale: f64) {
         graphics.scale_factor = scale;
         for screen in &mut self.screens {
             screen.scale(state, graphics, scale);
         }
     }
     
-    fn mouse(&mut self, state: &mut State, x_delta: f32, y_delta: f32) {
+    fn mouse(&mut self, state: &mut S, x_delta: f32, y_delta: f32) {
         for screen in &mut self.screens {
             screen.mouse(state, x_delta, y_delta);
         }
     }
 
-    fn input(&mut self, state: &mut State, input: &Input, modifiers: ModifiersState) {
+    fn input(&mut self, state: &mut S, input: &Input, modifiers: ModifiersState) {
         for screen in &mut self.screens {
             screen.input(state, input);
             if let WindowEvent::KeyboardInput { input, .. } = input {
                 if let Some(key) = input.virtual_keycode {
-                    if let Some(actions) = screen.actions() {
-                        if let Some(action) = actions.get_mut(&(key, modifiers)) {
+                    if let Some(bindings) = self.bindings.get_mut(&screen.identifier()) {
+                        if let Some(action) = bindings.get_mut(&(key, modifiers)) {
                             if input.state == ElementState::Pressed {
                                 action.invoke(state);
                             }

@@ -1,7 +1,7 @@
-use crate::{project::projects::Projects, load_or_default, save, editor::Editor};
+use crate::{project::project_manager::ProjectManager, load_or_default, save, editor::Editor};
 
 pub struct State {
-    pub projects: Projects,
+    pub projects: ProjectManager,
     pub editor: Editor,
 }
 

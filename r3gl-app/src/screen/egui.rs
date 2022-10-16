@@ -1,14 +1,12 @@
-use maplit::hashmap;
 use wcore::app::Input;
 use wcore::egui::egui::EGui;
 use wcore::egui::view::View;
 use wcore::egui::window::Window;
 use wcore::graphics::context::Context;
 use color_eyre::eyre::Result;
-use wcore::screen::{Screen, Actions, Action};
-use winit::event::{VirtualKeyCode, ModifiersState};
-use str_macro::str;
+use wcore::screen::Screen;
 
+use crate::identifier::Identifier;
 use crate::state::State;
 use crate::view::menu::MenuView;
 use crate::view::window::startup::StartupWindow;
@@ -20,32 +18,22 @@ pub struct EGuiScreen {
     menu: MenuView,
     startup: StartupWindow,
     timeline: TimelineWindow,
-
-    actions: Actions<State>,
 }
 
 impl EGuiScreen {
     pub fn new(graphics: &Context) -> Result<Self> {
-        let actions = hashmap! {
-            (VirtualKeyCode::Space, ModifiersState::empty()) => Action::new(str!(""), str!(), |state: &mut State| {
-                state.editor.toggle_paused();
-            }),
-        };
-
         return Ok(Self {
             egui: EGui::new(&graphics.device, &graphics.surface_configuration, graphics.scale_factor),
             
             menu: MenuView::new(),
             startup: StartupWindow::new(),
             timeline: TimelineWindow::new(),
-            
-            actions
         });
     }
 }
 
 #[allow(unused_variables)]
-impl Screen<State> for EGuiScreen {
+impl Screen<State, Identifier> for EGuiScreen {
     fn render(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context) {
         self.egui.render(view, graphics, |ctx: &egui::Context, graphics: &mut Context| {        
             self.startup.set_visible(state.projects.current.is_none());
@@ -82,7 +70,5 @@ impl Screen<State> for EGuiScreen {
         self.egui.resize(width, height);
     }
 
-    fn actions(&mut self) -> Option<&mut Actions<State>> {
-        return Some(&mut self.actions);
-    }
+    fn identifier(&mut self) -> Identifier { Identifier::Editor }
 }

@@ -1,7 +1,7 @@
 use std::path::{PathBuf, Path};
 use color_eyre::eyre::Result;
 
-use super::projects::ProjectInfo;
+use super::project_manager::ProjectInfo;
 
 #[derive(Debug, Clone)]
 pub struct Project {
