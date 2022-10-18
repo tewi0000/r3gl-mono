@@ -1,3 +1,5 @@
+use std::{path::Path, fs};
+
 use image::{GenericImageView, DynamicImage};
 use wgpu::{Device, Queue, FilterMode, BindGroupLayout};
 use color_eyre::Result;
@@ -14,6 +16,16 @@ pub struct Texture {
 }
 
 impl Texture {
+    pub fn from_path(device      : &Device,
+                     queue       : &Queue,
+                     path        : impl AsRef<Path>,
+                     filter_mode : FilterMode,
+                     label       : &str) -> Result<Self> {
+        let bytes = fs::read(path)?;
+
+        return Self::from_bytes(device, queue, &bytes, filter_mode, label);
+    }
+
     pub fn from_bytes(device      : &Device,
                       queue       : &Queue,
                       bytes       : &[u8],

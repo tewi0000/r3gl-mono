@@ -1,4 +1,4 @@
-use cgmath::{Vector3, Vector2};
+use cgmath::{Vector3, Vector2, vec3, vec2};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -18,6 +18,17 @@ impl Vertex {
             step_mode    : wgpu::VertexStepMode::Vertex,
             attributes   : &Self::ATTRIBUTES,
         }
+    }
+
+    pub fn vertices_rect(min: f32, max: f32) -> Vec<Self> {
+        return vec![ 
+            Vertex { pos: vec3(min, min, 0.0), uv: vec2(0.0, 0.0) },
+            Vertex { pos: vec3(min, max, 0.0), uv: vec2(0.0, 1.0) },
+            Vertex { pos: vec3(max, max, 0.0), uv: vec2(1.0, 1.0) },
+            Vertex { pos: vec3(max, max, 0.0), uv: vec2(1.0, 1.0) },
+            Vertex { pos: vec3(max, min, 0.0), uv: vec2(1.0, 0.0) },
+            Vertex { pos: vec3(min, min, 0.0), uv: vec2(0.0, 0.0) },
+        ];
     }
 }
 

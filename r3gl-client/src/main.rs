@@ -19,7 +19,9 @@ fn main() -> Result<()> {
     };
 
     let arena = DynamicArena::new();
-    app.run(State::new(), |app: &mut App<State, Identifier>, graphics: &mut Context| {
+    app.run(|graphics: &mut Context| {
+        State::new(graphics)
+    }, |app: &mut App<State, Identifier>, graphics: &mut Context| {
         (|| -> Result<()> {
             app.screens.push(arena.alloc(TaikoScreen::new(graphics)?));
             app.screens.push(arena.alloc(EGuiScreen::new(graphics)?));

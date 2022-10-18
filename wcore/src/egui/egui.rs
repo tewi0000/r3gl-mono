@@ -1,7 +1,7 @@
 use egui::{vec2, Pos2, Rect};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use winit::{event::{WindowEvent, ElementState, VirtualKeyCode, ModifiersState, MouseButton, KeyboardInput}, dpi::{PhysicalPosition, PhysicalSize}};
-use crate::{utils, graphics::context::{Context}};
+use crate::{graphics::{context::{Context}, utils}};
 
 fn is_cut_command(modifiers: egui::Modifiers, keycode: winit::event::VirtualKeyCode) -> bool {
     return (modifiers.command && keycode == winit::event::VirtualKeyCode::X)

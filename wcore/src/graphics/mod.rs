@@ -8,3 +8,4 @@ pub mod texture;
 pub mod depth_buffer;
 pub mod scene;
 pub mod pipeline;
+pub mod utils;

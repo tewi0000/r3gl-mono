@@ -20,12 +20,14 @@ pub struct App<'a, S, I: Identifier> {
 }
 
 impl<'a, S, I: Identifier> App<'a, S, I> {
-    pub fn run(mut self, mut state: S, init: impl FnOnce(&mut Self, &mut Context)) {
+    pub fn run(mut self, mut state: impl FnOnce(&mut Context) -> S, init: impl FnOnce(&mut Self, &mut Context)) {
         pollster::block_on(async {
             let mut event_loop = EventLoop::new();
             let window = create_window(&event_loop, self.width, self.height);
             let mut graphics = Context::new(&window).await.unwrap();
             init(&mut self, &mut graphics);
+
+            let mut state = state(&mut graphics);
 
             let mut focused = false;
             let mut input_data = Input::default();

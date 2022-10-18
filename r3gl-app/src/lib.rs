@@ -11,6 +11,7 @@ pub mod editor;
 pub mod beatmap;
 pub mod graphics;
 pub mod identifier;
+pub mod store;
 
 pub fn save<T: Serialize>(obj: &T, path: impl AsRef<Path>) {
     let path = path.as_ref();

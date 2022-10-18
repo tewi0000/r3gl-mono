@@ -1,4 +1,4 @@
-use wcore::{graphics::{texture::Texture, scene::Scene, primitive::mesh::data::vertex::Vertex, uniform::Uniform, pipeline::{shader::scene::SceneSlot, Pipeline}, bindable::Bindable}, utils};
+use wcore::{graphics::{texture::Texture, scene::Scene, primitive::mesh::data::vertex::Vertex, uniform::Uniform, pipeline::{shader::scene::SceneSlot, Pipeline}, bindable::Bindable, utils}};
 use wgpu::include_wgsl;
 
 use crate::graphics::primitive::mesh::taiko::CircleRaw;

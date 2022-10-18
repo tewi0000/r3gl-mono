@@ -1,6 +1,6 @@
 use wgpu::include_wgsl;
 
-use crate::{graphics::{texture::Texture, scene::Scene, primitive::mesh::data::{vertex::Vertex, model::ModelRaw}, uniform::Uniform, bindable::Bindable}, utils};
+use crate::{graphics::{texture::Texture, scene::Scene, primitive::mesh::data::{vertex::Vertex, model::ModelRaw}, uniform::Uniform, bindable::Bindable, utils}};
 
 use super::{shader::scene::SceneSlot, Pipeline};
 

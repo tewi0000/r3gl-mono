@@ -1,5 +1,5 @@
 use cgmath::{vec3, Quaternion, Zero, vec4, Vector2, vec2, MetricSpace};
-use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, texture::Texture, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection}, utils, collider::collide, input::Input};
+use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, texture::Texture, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection, utils}, collider::collide, input::Input};
 use winit::event::{WindowEvent, MouseButton, ElementState};
 
 use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier};
@@ -17,13 +17,7 @@ pub struct TaikoScreen {
     
     pub scene: Scene2D,
     
-    pub t_circle: Texture,
-    pub t_overlay: Texture,
-    pub t_big_circle: Texture,
-    pub t_big_overlay: Texture,
-    pub t_hit_position: Texture,
-    pub t_selection: Texture,
-    pub t_selection_box: Texture,
+
     
     pub mesh_circle: InstancedMesh<Circle, CircleRaw, Vertex>,
     pub mesh_model_hit: InstancedMesh<Model, ModelRaw, Vertex>,
@@ -36,54 +30,15 @@ pub struct TaikoScreen {
 
 impl TaikoScreen {
     pub fn new(graphics: &Context) -> Result<Self> {
-        let mesh_circle = InstancedMesh::new(&graphics.device, vec![
-            Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
-            Vertex { pos: (-0.5,  0.5, 0.0).into(), uv: (0.0, 1.0).into() },
-            Vertex { pos: ( 0.5,  0.5, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: ( 0.5,  0.5, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: ( 0.5, -0.5, 0.0).into(), uv: (1.0, 0.0).into() },
-            Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
-        ], vec![]);
-
-        let mesh_model_hit = InstancedMesh::new(&graphics.device, vec![
-            Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
-            Vertex { pos: (-0.5,  0.5, 0.0).into(), uv: (0.0, 1.0).into() },
-            Vertex { pos: ( 0.5,  0.5, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: ( 0.5,  0.5, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: ( 0.5, -0.5, 0.0).into(), uv: (1.0, 0.0).into() },
-            Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
-        ], vec![Model {
+        let mesh_model_selection_box = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(0.0, 1.0), vec![]);
+        let mesh_model_selection = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(-0.5, 0.5), vec![]);
+        let mesh_circle = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(-0.5, 0.5), vec![]);
+        let mesh_model_hit = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(-0.5, 0.5), vec![Model {
             position: vec3(OFFSET, OFFSET, 0.0),
             rotation: Quaternion::zero(),
             scale: vec3(CIRCLE_SIZE, CIRCLE_SIZE, 1.0),
             color: vec4(1.0, 1.0, 1.0, 0.5)
         }]);
-
-        let mesh_model_selection_box = InstancedMesh::new(&graphics.device, vec![
-            Vertex { pos: (0.0, 0.0, 0.0).into(), uv: (0.0, 0.0).into() },
-            Vertex { pos: (0.0, 1.0, 0.0).into(), uv: (0.0, 1.0).into() },
-            Vertex { pos: (1.0, 1.0, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: (1.0, 1.0, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: (1.0, 0.0, 0.0).into(), uv: (1.0, 0.0).into() },
-            Vertex { pos: (0.0, 0.0, 0.0).into(), uv: (0.0, 0.0).into() },
-        ], vec![]);
-
-        let mesh_model_selection = InstancedMesh::new(&graphics.device, vec![
-            Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
-            Vertex { pos: (-0.5,  0.5, 0.0).into(), uv: (0.0, 1.0).into() },
-            Vertex { pos: ( 0.5,  0.5, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: ( 0.5,  0.5, 0.0).into(), uv: (1.0, 1.0).into() },
-            Vertex { pos: ( 0.5, -0.5, 0.0).into(), uv: (1.0, 0.0).into() },
-            Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
-        ], vec![]);
-
-        let t_circle        = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircle.png"), wgpu::FilterMode::Linear, "circle")?;
-        let t_overlay       = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircleoverlay.png"), wgpu::FilterMode::Linear, "overlay")?;
-        let t_big_circle    = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircle.png"), wgpu::FilterMode::Linear, "big_circle")?;
-        let t_big_overlay   = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircleoverlay.png"), wgpu::FilterMode::Linear, "big_overlay")?;
-        let t_hit_position  = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("approachcircle.png"), wgpu::FilterMode::Linear, "big_overlay")?;
-        let t_selection     = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("selection.png"), wgpu::FilterMode::Linear, "selection")?;
-        let t_selection_box = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("selectionbox.png"), wgpu::FilterMode::Linear, "selection")?;
 
         let width = graphics.surface_configuration.width;
         let height = graphics.surface_configuration.height;
@@ -105,14 +60,6 @@ impl TaikoScreen {
             mesh_model_hit,
             mesh_model_selection,
             mesh_model_selection_box,
-            
-            t_circle,
-            t_overlay,
-            t_big_circle,
-            t_big_overlay,
-            t_hit_position,
-            t_selection,
-            t_selection_box,
 
             selection,
             selection_start: (0.0, 0.0,).into(),
@@ -128,7 +75,7 @@ impl Screen<State, Identifier> for TaikoScreen {
                 self.scene.camera.position.x = 0.0;                       // Manipulate camera
                 self.pipeline_model.attach(&mut render_pass);             // Attach to renderpass
                 self.pipeline_model.update(&graphics.queue, &self.scene); // Update camera (! buffred !)
-                self.t_hit_position.bind(&mut render_pass, 1);            // Bind texture
+                state.textures.t_hit_position.bind(&mut render_pass, 1);            // Bind texture
                 self.mesh_model_hit.draw(&mut render_pass);               // Draw
 
                 /* Circles */
@@ -140,10 +87,10 @@ impl Screen<State, Identifier> for TaikoScreen {
                 self.pipeline_taiko.update(&graphics.queue, &self.scene);
                 
                 // Textures
-                self.t_circle.bind(&mut render_pass, 1);
-                self.t_overlay.bind(&mut render_pass, 2);
-                self.t_big_circle.bind(&mut render_pass, 3);
-                self.t_big_overlay.bind(&mut render_pass, 4);
+                state.textures.t_circle.bind(&mut render_pass, 1);
+                state.textures.t_overlay.bind(&mut render_pass, 2);
+                state.textures.t_big_circle.bind(&mut render_pass, 3);
+                state.textures.t_big_overlay.bind(&mut render_pass, 4);
 
                 // Drawing
                 if let Some(beatmap) = &state.editor.beatmap {
@@ -172,13 +119,13 @@ impl Screen<State, Identifier> for TaikoScreen {
 
                 /* Selection */
                 self.pipeline_model.attach(&mut render_pass);         // Attach to renderpass
-                self.t_selection_box.bind(&mut render_pass, 1);           // Bind texture
+                state.textures.t_selection_box.bind(&mut render_pass, 1);           // Bind texture
                 self.mesh_model_selection_box.bake_instances(&graphics.device);
                 self.mesh_model_selection_box.draw(&mut render_pass); // Draw
 
                 self.pipeline_field.attach(&mut render_pass);             // Attach to renderpass
                 self.pipeline_field.update(&graphics.queue, &self.scene); // Update camera (! buffred !)
-                self.t_selection.bind(&mut render_pass, 1);               // Bind texture
+                state.textures.t_selection.bind(&mut render_pass, 1);               // Bind texture
 
                 // Draw
                 self.mesh_model_selection.instances.clear();
