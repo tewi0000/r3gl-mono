@@ -3,8 +3,9 @@ use wcore::egui::view::View;
 use wcore::egui::window::Window;
 use wcore::graphics::context::Context;
 use color_eyre::eyre::Result;
+use wcore::input::Input;
 use wcore::screen::Screen;
-use winit::event::{WindowEvent, ModifiersState};
+use winit::event::WindowEvent;
 
 use crate::identifier::Identifier;
 use crate::state::State;
@@ -45,7 +46,7 @@ impl Screen<State, Identifier> for EGuiScreen {
     }
 
     #[allow(unused_variables)]
-    fn input(&mut self, state: &mut State, event: &WindowEvent, modifiers: ModifiersState) {
+    fn input(&mut self, state: &mut State, event: &WindowEvent, input: &Input) {
         self.egui.input(event); // Todo: pass keyboard events only
         if self.egui.egui_ctx.wants_keyboard_input() {
             return;

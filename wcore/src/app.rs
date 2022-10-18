@@ -1,11 +1,12 @@
 use instant::Instant;
 use winit::dpi::LogicalSize;
-use winit::event::{DeviceEvent, Event, WindowEvent, ModifiersState, ElementState};
+use winit::event::{DeviceEvent, Event, WindowEvent, ElementState};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
 use crate::bindings::BindingManager;
 use crate::graphics::context::Context;
+use crate::input::Input;
 use crate::screen::{Screen, Identifier};
 
 pub struct App<'a, S, I: Identifier> {
@@ -27,7 +28,7 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
             init(&mut self, &mut graphics);
 
             let mut focused = false;
-            let mut modifiers = ModifiersState::empty();
+            let mut input_data = Input::default();
             event_loop.run_return(move |event, _, control_flow| {
                 match event {
                     Event::MainEventsCleared => {
@@ -54,6 +55,17 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
 
                     Event::WindowEvent { event, window_id } if window_id == window.id() => {
                         match event {
+                            ref event @ WindowEvent::CursorMoved { device_id, position, modifiers } => {
+                                input_data.cursor_position = (position.x as f32, position.y as f32).into();
+                                self.input(&mut state, &event, &input_data);
+                            }
+
+                            ref event @ WindowEvent::MouseInput { device_id, state: mouse_state, button, modifiers } => {
+                                input_data.mouse_button = button;
+                                input_data.mouse_state = mouse_state;
+                                self.input(&mut state, &event, &input_data);
+                            }
+
                             WindowEvent::Focused(is_focused) => {
                                 focused = is_focused;
                             }
@@ -73,11 +85,11 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                             }
 
                             WindowEvent::ModifiersChanged(new_modifiers) => {
-                                modifiers = new_modifiers;
+                                input_data.modifiers = new_modifiers;
                             }
 
-                            dropped_file @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &dropped_file, modifiers); }
-                            _ => if focused { self.input(&mut state, &event, modifiers); }
+                            event @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &event, &input_data); }
+                            _ => if focused { self.input(&mut state, &event, &input_data); }
                         }
                     }
 
@@ -114,14 +126,14 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
         }
     }
 
-    fn input(&mut self, state: &mut S, event: &WindowEvent, modifiers: ModifiersState) {
+    fn input(&mut self, state: &mut S, event: &WindowEvent, input: &Input) {
         for screen in &mut self.screens {
-            screen.input(state, event, modifiers);
-            if let WindowEvent::KeyboardInput { input, .. } = event {
-                if let Some(key) = input.virtual_keycode {
+            screen.input(state, event, input);
+            if let WindowEvent::KeyboardInput { input: key_input, .. } = event {
+                if let Some(key) = key_input.virtual_keycode {
                     if let Some(bindings) = self.bindings.get_mut(&screen.identifier()) {
-                        if let Some(action) = bindings.get_mut(&(key, modifiers)) {
-                            if input.state == ElementState::Pressed {
+                        if let Some(action) = bindings.get_mut(&(key, input.modifiers)) {
+                            if key_input.state == ElementState::Pressed {
                                 action.invoke(state);
                             }
                         }

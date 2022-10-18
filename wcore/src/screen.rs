@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 use instant::Instant;
 use winit::event::{VirtualKeyCode, ModifiersState, WindowEvent};
-use crate::graphics::context::Context;
+use crate::{graphics::context::Context, input::Input};
 
 pub trait Identifier: Hash + Clone + Copy + PartialEq + Eq + Default {}
 
@@ -14,7 +14,7 @@ pub trait Screen<S, I: Identifier> {
     fn resize(&mut self, state: &mut S, graphics: &mut Context, width: i32, height: i32) { }
     fn scale(&mut self, state: &mut S, graphics: &mut Context, scale: f64) { }
     fn mouse(&mut self, state: &mut S, x_delta: f32, y_delta: f32) { }
-    fn input(&mut self, state: &mut S, event: &WindowEvent, modifiers: ModifiersState) { }
+    fn input(&mut self, state: &mut S, event: &WindowEvent, input: &Input) { }
 
     fn identifier(&mut self) -> I { I::default() }
 }

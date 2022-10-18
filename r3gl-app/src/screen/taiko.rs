@@ -1,6 +1,6 @@
-use cgmath::{vec3, Quaternion, Zero, vec4, Vector2, vec2};
-use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, texture::Texture, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection}, utils, collider::collide};
-use winit::event::{WindowEvent, MouseButton, ElementState, ModifiersState};
+use cgmath::{vec3, Quaternion, Zero, vec4, Vector2, vec2, MetricSpace};
+use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, texture::Texture, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection}, utils, collider::collide, input::Input};
+use winit::event::{WindowEvent, MouseButton, ElementState};
 
 use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier};
 use color_eyre::eyre::Result;
@@ -8,6 +8,7 @@ use color_eyre::eyre::Result;
 const OFFSET: f32 = 200.0;
 const SCALE: f32 = 0.8;
 const CIRCLE_SIZE: f32 = 128.0 * 0.75;
+const DEAD_ZONE: f32 = 20.0;
 
 pub struct TaikoScreen {
     pub pipeline_taiko: TaikoCirclePipeline,
@@ -22,14 +23,15 @@ pub struct TaikoScreen {
     pub t_big_overlay: Texture,
     pub t_hit_position: Texture,
     pub t_selection: Texture,
+    pub t_selection_box: Texture,
     
     pub mesh_circle: InstancedMesh<Circle, CircleRaw, Vertex>,
     pub mesh_model_hit: InstancedMesh<Model, ModelRaw, Vertex>,
     pub mesh_model_selection: InstancedMesh<Model, ModelRaw, Vertex>,
-
-    pub cursor: Vector2<f32>,
+    pub mesh_model_selection_box: InstancedMesh<Model, ModelRaw, Vertex>,
 
     pub selection: Vec<usize>,
+    pub selection_start: Vector2<f32>,
 }
 
 impl TaikoScreen {
@@ -57,6 +59,15 @@ impl TaikoScreen {
             color: vec4(1.0, 1.0, 1.0, 0.5)
         }]);
 
+        let mesh_model_selection_box = InstancedMesh::new(&graphics.device, vec![
+            Vertex { pos: (0.0, 0.0, 0.0).into(), uv: (0.0, 0.0).into() },
+            Vertex { pos: (0.0, 1.0, 0.0).into(), uv: (0.0, 1.0).into() },
+            Vertex { pos: (1.0, 1.0, 0.0).into(), uv: (1.0, 1.0).into() },
+            Vertex { pos: (1.0, 1.0, 0.0).into(), uv: (1.0, 1.0).into() },
+            Vertex { pos: (1.0, 0.0, 0.0).into(), uv: (1.0, 0.0).into() },
+            Vertex { pos: (0.0, 0.0, 0.0).into(), uv: (0.0, 0.0).into() },
+        ], vec![]);
+
         let mesh_model_selection = InstancedMesh::new(&graphics.device, vec![
             Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
             Vertex { pos: (-0.5,  0.5, 0.0).into(), uv: (0.0, 1.0).into() },
@@ -66,12 +77,13 @@ impl TaikoScreen {
             Vertex { pos: (-0.5, -0.5, 0.0).into(), uv: (0.0, 0.0).into() },
         ], vec![]);
 
-        let t_circle       = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircle.png"), wgpu::FilterMode::Linear, "circle")?;
-        let t_overlay      = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircleoverlay.png"), wgpu::FilterMode::Linear, "overlay")?;
-        let t_big_circle   = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircle.png"), wgpu::FilterMode::Linear, "big_circle")?;
-        let t_big_overlay  = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircleoverlay.png"), wgpu::FilterMode::Linear, "big_overlay")?;
-        let t_hit_position = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("approachcircle.png"), wgpu::FilterMode::Linear, "big_overlay")?;
-        let t_selection    = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("selection.png"), wgpu::FilterMode::Linear, "selection")?;
+        let t_circle        = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircle.png"), wgpu::FilterMode::Linear, "circle")?;
+        let t_overlay       = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikohitcircleoverlay.png"), wgpu::FilterMode::Linear, "overlay")?;
+        let t_big_circle    = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircle.png"), wgpu::FilterMode::Linear, "big_circle")?;
+        let t_big_overlay   = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("taikobigcircleoverlay.png"), wgpu::FilterMode::Linear, "big_overlay")?;
+        let t_hit_position  = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("approachcircle.png"), wgpu::FilterMode::Linear, "big_overlay")?;
+        let t_selection     = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("selection.png"), wgpu::FilterMode::Linear, "selection")?;
+        let t_selection_box = Texture::from_bytes(&graphics.device, &graphics.queue, include_bytes!("selectionbox.png"), wgpu::FilterMode::Linear, "selection")?;
 
         let width = graphics.surface_configuration.width;
         let height = graphics.surface_configuration.height;
@@ -92,6 +104,7 @@ impl TaikoScreen {
             mesh_circle,
             mesh_model_hit,
             mesh_model_selection,
+            mesh_model_selection_box,
             
             t_circle,
             t_overlay,
@@ -99,10 +112,10 @@ impl TaikoScreen {
             t_big_overlay,
             t_hit_position,
             t_selection,
-
-            cursor: (0.0, 0.0).into(),
+            t_selection_box,
 
             selection,
+            selection_start: (0.0, 0.0,).into(),
         });
     }
 }
@@ -158,6 +171,11 @@ impl Screen<State, Identifier> for TaikoScreen {
                 }
 
                 /* Selection */
+                self.pipeline_model.attach(&mut render_pass);         // Attach to renderpass
+                self.t_selection_box.bind(&mut render_pass, 1);           // Bind texture
+                self.mesh_model_selection_box.bake_instances(&graphics.device);
+                self.mesh_model_selection_box.draw(&mut render_pass); // Draw
+
                 self.pipeline_field.attach(&mut render_pass);             // Attach to renderpass
                 self.pipeline_field.update(&graphics.queue, &self.scene); // Update camera (! buffred !)
                 self.t_selection.bind(&mut render_pass, 1);               // Bind texture
@@ -183,33 +201,94 @@ impl Screen<State, Identifier> for TaikoScreen {
     }
 
     #[allow(unused_variables)]
-    fn input(&mut self, state: &mut State, input: &WindowEvent, modifiers: ModifiersState) {
+    fn input(&mut self, state: &mut State, event: &WindowEvent, input: &Input) {
         #[allow(deprecated)]
-        match input {
+        match event {
             WindowEvent::CursorMoved { device_id, position, modifiers: _ } => {
-                self.cursor.x = position.x as f32;
-                self.cursor.y = position.y as f32;
+                if input.mouse_button == MouseButton::Left && input.mouse_state == ElementState::Pressed {
+                    if self.selection_start.distance(vec2(position.x as f32, position.y as f32)) < DEAD_ZONE {
+                        return
+                    }
+
+                    self.mesh_model_selection_box.instances.push(Model {
+                        position: vec3(0.0, 0.0, 0.0),
+                        rotation: Quaternion::zero(),
+                        scale: vec3(0.0, 0.0, 1.0),
+                        color: vec4(1.0, 1.0, 1.0, 0.2)
+                    });
+
+                    let selection_box = &mut self.mesh_model_selection_box.instances[0];
+                    let size = input.cursor_position - self.selection_start;
+
+                    match (size.x > 0.0, size.y > 0.0) {
+                        (true, true) => {
+                            selection_box.position = self.selection_start.extend(0.0);
+                            selection_box.scale = (size).extend(0.0);
+                        }
+
+                        (true, false) => {
+                            selection_box.position = vec3(self.selection_start.x, self.selection_start.y + size.y, 0.0);
+                            selection_box.scale = vec3(size.x, size.y.abs(), 0.0);
+                        }
+                        
+                        (false, true) => {
+                            selection_box.position = vec3(self.selection_start.x + size.x, self.selection_start.y, 0.0);
+                            selection_box.scale = vec3(size.x.abs(), size.y, 0.0);
+                        }
+
+                        (false, false) => {
+                            selection_box.position = vec3(self.selection_start.x + size.x, self.selection_start.y + size.y, 0.0);
+                            selection_box.scale = vec3(size.x.abs(), size.y.abs(), 0.0);
+                        }
+                    }
+                    
+                    let time = state.editor.get_time();
+                    let offset = -((time as f32 * SCALE) - OFFSET);
+                    self.selection.clear();
+                    self.selection = self.mesh_circle.instances.iter().enumerate().filter_map(|(i, x)| {
+                        let mut pos = x.position.truncate();
+                        pos.x += offset;
+
+                        if collide::square(selection_box.position.truncate(), selection_box.scale.truncate(), pos) {
+                            Some(i)
+                        } else { None }
+                    }).collect();
+
+                }
             }
 
             WindowEvent::MouseInput { device_id, state: button_state, button, modifiers: _ } => {
                 let time = state.editor.get_time();
                 let offset = -((time as f32 * SCALE) - OFFSET);
-                if *button == MouseButton::Left && *button_state == ElementState::Pressed {
-                    let selection = self.mesh_circle.instances.iter().rev().position(|x| {
-                        collide::circle(vec2(x.position.x + offset, x.position.y), self.cursor, CIRCLE_SIZE / 2.0)
-                    });
-
-                    if let Some(reverse_index) = selection {
-                        let len = self.mesh_circle.instances.len();
-                        if !modifiers.ctrl() {
-                            self.selection.clear();
+                if *button == MouseButton::Left {
+                    match *button_state {
+                        ElementState::Pressed => {
+                            self.selection_start = input.cursor_position;
+    
+                            let selection = self.mesh_circle.instances.iter().rev().position(|x| {
+                                collide::circle(vec2(x.position.x + offset, x.position.y), input.cursor_position, CIRCLE_SIZE / 2.0)
+                            });
+    
+                            if let Some(reverse_index) = selection {
+                                let len = self.mesh_circle.instances.len();
+                                if !input.modifiers.ctrl() {
+                                    self.selection.clear();
+                                }
+    
+                                let i = len - reverse_index - 1;
+                                if let Some(selected) = self.selection.iter().copied().position(|x| x == i) {
+                                         self.selection.remove(selected);
+                                } else { self.selection.push(i); }
+                            } else {
+                                if !input.modifiers.ctrl() {
+                                    self.selection.clear();
+                                }
+                            }
                         }
 
-                        let i = len - reverse_index - 1;
-                        if let Some(selected) = self.selection.iter().copied().position(|x| x == i) {
-                                 self.selection.remove(selected);
-                        } else { self.selection.push(i); }
-
+                        ElementState::Released => {
+                            self.mesh_model_selection_box.instances.clear();
+                        }
                     }
                 }
             },
