@@ -18,9 +18,6 @@ pub struct App<'a, S, I: Identifier> {
     pub bindings: BindingManager<S, I>,
 }
 
-// TODO: make a custom input type
-pub type Input<'a> = WindowEvent<'a>;
-
 impl<'a, S, I: Identifier> App<'a, S, I> {
     pub fn run(mut self, mut state: S, init: impl FnOnce(&mut Self, &mut Context)) {
         pollster::block_on(async {
@@ -117,10 +114,10 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
         }
     }
 
-    fn input(&mut self, state: &mut S, input: &Input, modifiers: ModifiersState) {
+    fn input(&mut self, state: &mut S, event: &WindowEvent, modifiers: ModifiersState) {
         for screen in &mut self.screens {
-            screen.input(state, input);
-            if let WindowEvent::KeyboardInput { input, .. } = input {
+            screen.input(state, event, modifiers);
+            if let WindowEvent::KeyboardInput { input, .. } = event {
                 if let Some(key) = input.virtual_keycode {
                     if let Some(bindings) = self.bindings.get_mut(&screen.identifier()) {
                         if let Some(action) = bindings.get_mut(&(key, modifiers)) {

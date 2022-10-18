@@ -1,10 +1,10 @@
-use wcore::app::Input;
 use wcore::egui::egui::EGui;
 use wcore::egui::view::View;
 use wcore::egui::window::Window;
 use wcore::graphics::context::Context;
 use color_eyre::eyre::Result;
 use wcore::screen::Screen;
+use winit::event::{WindowEvent, ModifiersState};
 
 use crate::identifier::Identifier;
 use crate::state::State;
@@ -45,19 +45,19 @@ impl Screen<State, Identifier> for EGuiScreen {
     }
 
     #[allow(unused_variables)]
-    fn input(&mut self, state: &mut State, input: &Input) {
-        self.egui.input(input); // Todo: pass keyboard events only
+    fn input(&mut self, state: &mut State, event: &WindowEvent, modifiers: ModifiersState) {
+        self.egui.input(event); // Todo: pass keyboard events only
         if self.egui.egui_ctx.wants_keyboard_input() {
             return;
         }
 
-        match input {
-            Input::DroppedFile(file) => {
+        match event {
+            WindowEvent::DroppedFile(file) => {
                 state.editor.open_project(file, &mut state.projects);
                 self.startup.set_visible(false);
             }
 
-            Input::MouseWheel { device_id, delta, phase, .. } => {
+            WindowEvent::MouseWheel { device_id, delta, phase, .. } => {
                 
             }
 
