@@ -43,7 +43,7 @@ impl Window<(&mut State, &mut BindingManager<State, Identifier>)> for BindingsWi
                   .show(ui, |ui| {
                     ui.label(&action.name);
                     ui.vertical_centered_justified(|ui| {
-                        ui.button(&format!("{}", bind.0 as i32));
+                        ui.button(&format!("{}", bind));
                     });
 
                     ui.end_row();

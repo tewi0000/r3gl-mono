@@ -2,7 +2,7 @@ use color_eyre::eyre::Result;
 use dynamic_arena::DynamicArena;
 use maplit::hashmap;
 use r3gl_app::{state::State, screen::{egui::EGuiScreen, taiko::TaikoScreen}, identifier::Identifier};
-use wcore::{app::{App, AppState}, graphics::context::Context, screen::Action};
+use wcore::{app::{App, AppState}, graphics::context::Context, screen::{Action, KeyCombination}};
 use winit::event::{VirtualKeyCode, ModifiersState};
 use str_macro::str;
 
@@ -25,8 +25,8 @@ fn main() -> Result<()> {
             let graphics = &state.graphics;
             app.screens.push(arena.alloc(TaikoScreen::new(graphics)?));
             app.screens.push(arena.alloc(EGuiScreen::new(graphics)?));
-            state.bindings.insert(Identifier::Editor, hashmap! {
-                (VirtualKeyCode::Space, ModifiersState::empty()) => Action::new(
+            state.bindings.insert(Identifier::Editor, hashmap! { 
+                KeyCombination::from((VirtualKeyCode::Space, ModifiersState::empty())) => Action::new(
                     str!("Play/Pause"),
                     str!("Starts or stops the current song"),
                     |state: &mut State| {

@@ -7,7 +7,7 @@ use winit::window::{Window, WindowBuilder};
 use crate::bindings::BindingManager;
 use crate::graphics::context::Context;
 use crate::input::Input;
-use crate::screen::{Screen, Identifier};
+use crate::screen::{Screen, Identifier, KeyCombination};
 
 pub struct AppState<S, I: Identifier> {
     pub bindings: BindingManager<S, I>,
@@ -141,15 +141,11 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
     fn input(&mut self, state: &mut S, app: &mut AppState<S, I>, event: &WindowEvent, input: &Input) {
         for screen in &mut self.screens {
             screen.input(state, app, event, input);
-            if let WindowEvent::KeyboardInput { input: key_input, .. } = event {
-                if let Some(key) = key_input.virtual_keycode {
-                    if let Some(bindings) = app.bindings.get_mut(&screen.identifier()) {
-                        if let Some(action) = bindings.get_mut(&(key, input.modifiers)) {
-                            if key_input.state == ElementState::Pressed {
-                                action.invoke(state);
-                            }
-                        }
-                    }
+            if let WindowEvent::KeyboardInput { input: key_input, .. } = event
+            && let Some(key) = key_input.virtual_keycode && let Some(bindings) = app.bindings.get_mut(&screen.identifier())
+            && let Some(action) = bindings.get_mut(&KeyCombination::from((key, input.modifiers))) {
+                if key_input.state == ElementState::Pressed {
+                    action.invoke(state);
                 }
             }
         }
