@@ -14,7 +14,7 @@ pub trait Screen<S, I: Identifier> {
     fn resize(&mut self, state: &mut S, app: &mut AppState<S, I>, width: i32, height: i32) { }
     fn scale(&mut self, state: &mut S, app: &mut AppState<S, I>, scale: f64) { }
     fn mouse(&mut self, state: &mut S, app: &mut AppState<S, I>, x_delta: f32, y_delta: f32) { }
-    fn input(&mut self, state: &mut S, app: &mut AppState<S, I>, event: &WindowEvent, input: &Input) { }
+    fn input(&mut self, state: &mut S, app: &mut AppState<S, I>, event: &WindowEvent, input: &Input) -> bool { true }
 
     fn identifier(&mut self) -> I { I::default() }
 }

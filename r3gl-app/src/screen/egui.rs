@@ -57,10 +57,10 @@ impl Screen<State, Identifier> for EGuiScreen {
     }
 
     #[allow(unused_variables)]
-    fn input(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, event: &WindowEvent, input: &Input) {
+    fn input(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, event: &WindowEvent, input: &Input) -> bool {
         self.egui.input(event); // Todo: pass keyboard events only
         if self.egui.egui_ctx.wants_keyboard_input() {
-            return;
+            return false;
         }
 
         match event {
@@ -75,6 +75,12 @@ impl Screen<State, Identifier> for EGuiScreen {
 
             _ => {}
         }
+
+        if self.egui.egui_ctx.wants_pointer_input() {
+            return false;
+        }
+     
+        return true;
     }
 
     #[allow(unused_variables)]

@@ -68,13 +68,13 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                         match event {
                             ref event @ WindowEvent::CursorMoved { device_id, position, modifiers } => {
                                 input_data.cursor_position = (position.x as f32, position.y as f32).into();
-                                self.input(&mut state, &mut app_state, &event, &input_data);
+                                self.input(&mut state, &mut app_state, &event, &mut input_data);
                             }
 
                             ref event @ WindowEvent::MouseInput { device_id, state: mouse_state, button, modifiers } => {
                                 input_data.mouse_button = button;
                                 input_data.mouse_state = mouse_state;
-                                self.input(&mut state, &mut app_state, &event, &input_data);
+                                self.input(&mut state, &mut app_state, &event, &mut input_data);
                             }
 
                             WindowEvent::Focused(is_focused) => {
@@ -99,8 +99,8 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                                 input_data.modifiers = new_modifiers;
                             }
 
-                            event @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &mut app_state, &event, &input_data); }
-                            _ => if focused { self.input(&mut state, &mut app_state, &event, &input_data); }
+                            event @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &mut app_state, &event, &mut input_data); }
+                            _ => if focused { self.input(&mut state, &mut app_state, &event, &mut input_data); }
                         }
                     }
 
@@ -138,15 +138,20 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
         }
     }
 
-    fn input(&mut self, state: &mut S, app: &mut AppState<S, I>, event: &WindowEvent, input: &Input) {
-        for screen in &mut self.screens {
-            screen.input(state, app, event, input);
+    fn input(&mut self, state: &mut S, app: &mut AppState<S, I>, event: &WindowEvent, input: &mut Input) {
+        let mut input_blocked = false;
+        for screen in self.screens.iter_mut().rev() {
             if let WindowEvent::KeyboardInput { input: key_input, .. } = event
             && let Some(key) = key_input.virtual_keycode && let Some(bindings) = app.bindings.get_mut(&screen.identifier())
             && let Some(action) = bindings.get_mut(&KeyCombination::from((key, input.modifiers))) {
                 if key_input.state == ElementState::Pressed {
                     action.invoke(state);
                 }
+            }
+
+            if !input_blocked && !screen.input(state, app, event, input) {
+                input.mouse_state = ElementState::Released;
+                input_blocked = true;
             }
         }
     }

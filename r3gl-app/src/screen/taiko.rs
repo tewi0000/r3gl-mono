@@ -148,13 +148,13 @@ impl Screen<State, Identifier> for TaikoScreen {
     }
 
     #[allow(unused_variables)]
-    fn input(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, event: &WindowEvent, input: &Input) {
+    fn input(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, event: &WindowEvent, input: &Input) -> bool { 'e: {
         #[allow(deprecated)]
         match event {
             WindowEvent::CursorMoved { device_id, position, modifiers: _ } => {
                 if input.mouse_button == MouseButton::Left && input.mouse_state == ElementState::Pressed {
                     if self.selection_start.distance(vec2(position.x as f32, position.y as f32)) < DEAD_ZONE {
-                        return
+                        break 'e;
                     }
 
                     self.mesh_model_selection_box.instances.push(Model {
@@ -242,7 +242,8 @@ impl Screen<State, Identifier> for TaikoScreen {
 
             _ => {}
         }
-    }
+
+    } return true; }
 
     #[allow(unused_variables)]
     fn resize(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, width: i32, height: i32) {

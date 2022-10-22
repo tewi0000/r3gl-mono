@@ -24,7 +24,10 @@ impl Window<(&mut State, &mut BindingManager<State, Identifier>)> for BindingsWi
     #[allow(unused_variables)]
     fn build<'a>(window: egui::Window<'a>, ctx: &'_ egui::Context) -> egui::Window<'a> {
         window
+            .default_pos([64.0, 64.0])
+            .default_size([220.0, 260.0])
             .collapsible(true)
+            .resizable(true)
             .title_bar(true)
     }
 
@@ -50,5 +53,7 @@ impl Window<(&mut State, &mut BindingManager<State, Identifier>)> for BindingsWi
                 });
             }
         }
+
+        ui.allocate_space(ui.available_size());
     }
 }
