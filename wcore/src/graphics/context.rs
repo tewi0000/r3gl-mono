@@ -42,6 +42,7 @@ impl Context {
             width        : size.width,
             height       : size.height,
             present_mode : wgpu::PresentMode::AutoVsync,
+            alpha_mode   : wgpu::CompositeAlphaMode::Auto,
         }; surface.configure(&device, &surface_configuration);
 
         let scale_factor = window.scale_factor();

@@ -1,5 +1,5 @@
-use egui::{RichText, Link, TextStyle, ScrollArea, Label, Sense, Align2, vec2};
-use wcore::{graphics::context::Context, egui::window::Window, app::AppState, screen::Bindings, bindings::BindingManager};
+use egui::RichText;
+use wcore::{graphics::context::Context, egui::window::Window, bindings::BindingManager};
 
 use crate::{state::State, identifier::Identifier};
 
@@ -46,7 +46,9 @@ impl Window<(&mut State, &mut BindingManager<State, Identifier>)> for BindingsWi
                   .show(ui, |ui| {
                     ui.label(&action.name);
                     ui.vertical_centered_justified(|ui| {
-                        ui.button(&format!("{}", bind));
+                        if ui.button(&format!("{}", bind)).clicked() {
+                            
+                        }
                     });
 
                     ui.end_row();

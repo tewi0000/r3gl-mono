@@ -64,6 +64,8 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                         if focused { self.mouse(&mut state, &mut app_state, delta.0 as f32, delta.1 as f32) }
                     }
 
+                    #[allow(deprecated)]
+                    #[allow(unused_variables)]
                     Event::WindowEvent { event, window_id } if window_id == window.id() => {
                         match event {
                             ref event @ WindowEvent::CursorMoved { device_id, position, modifiers } => {
