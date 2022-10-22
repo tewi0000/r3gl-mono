@@ -1,5 +1,6 @@
-use egui::{RichText, Link, TextStyle, ScrollArea, Label, Sense, Align2, vec2};
+use egui::{RichText, Link, TextStyle, ScrollArea, Label, Sense, Align2, vec2, FontId, Color32};
 use wcore::{graphics::context::Context, egui::window::Window};
+use str_macro::str;
 
 use crate::state::State;
 
@@ -50,15 +51,16 @@ impl Window<&mut State> for StartupWindow {
             // Setup layout
             ui.spacing_mut().item_spacing.x = 0.0;
 
-            let mut text_width = 0.0;
-            let calc_ctx = egui::Context::default();
-            calc_ctx.run(Default::default(), |_ui| {});
-            egui::CentralPanel::default().show(&calc_ctx, |ui| {
-                text_width = ui.label("open folder | open file").rect.width();
-            });
+            let width = ui.available_width();
+            let text_width = ui.painter().layout(
+                str!("open folder | open file"),
+                FontId::default(),
+                Color32::default(),
+                width
+            ).rect.width();
 
             // TODO: might wanna cache this all, eh?
-            let offset = (ui.available_width() - text_width) / 2.0;
+            let offset = (width - text_width) / 2.0;
             ui.add_space(offset);
 
             // Menu    
