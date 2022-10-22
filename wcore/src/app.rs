@@ -9,25 +9,34 @@ use crate::graphics::context::Context;
 use crate::input::Input;
 use crate::screen::{Screen, Identifier};
 
+pub struct AppState<S, I: Identifier> {
+    pub bindings: BindingManager<S, I>,
+    pub graphics: Context,
+}
+
 pub struct App<'a, S, I: Identifier> {
     pub title: String,
-
+    
     pub width: i32,
     pub height: i32,
-
+    
     pub screens: Vec<&'a mut dyn Screen<S, I>>,
-    pub bindings: BindingManager<S, I>,
 }
 
 impl<'a, S, I: Identifier> App<'a, S, I> {
-    pub fn run(mut self, mut state: impl FnOnce(&mut Context) -> S, init: impl FnOnce(&mut Self, &mut Context)) {
+    pub fn run(mut self, state: impl FnOnce(&mut Context) -> S, init: impl FnOnce(&mut Self, &mut AppState<S, I>)) {
         pollster::block_on(async {
             let mut event_loop = EventLoop::new();
             let window = create_window(&event_loop, self.width, self.height);
             let mut graphics = Context::new(&window).await.unwrap();
-            init(&mut self, &mut graphics);
-
+            
             let mut state = state(&mut graphics);
+            let mut app_state = AppState {
+                bindings: Default::default(),
+                graphics: graphics
+            };
+            
+            init(&mut self, &mut app_state);
 
             let mut focused = false;
             let mut input_data = Input::default();
@@ -39,12 +48,12 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
 
                     Event::RedrawRequested(window_id) if window_id == window.id() => {
                         let now = Instant::now();
-                        if let Ok(output) = graphics.surface.get_current_texture() {
+                        if let Ok(output) = app_state.graphics.surface.get_current_texture() {
                             let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
                 
                             for screen in &mut self.screens {
-                                screen.update(&mut state, now);
-                                screen.render(&mut state, &view, &mut graphics);
+                                screen.update(&mut state, &mut app_state, now);
+                                screen.render(&mut state, &mut app_state, &view);
                             }
                 
                             output.present();
@@ -52,20 +61,20 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                     }
 
                     Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta, }, .. }  => {
-                        if focused { self.mouse(&mut state, delta.0 as f32, delta.1 as f32) }
+                        if focused { self.mouse(&mut state, &mut app_state, delta.0 as f32, delta.1 as f32) }
                     }
 
                     Event::WindowEvent { event, window_id } if window_id == window.id() => {
                         match event {
                             ref event @ WindowEvent::CursorMoved { device_id, position, modifiers } => {
                                 input_data.cursor_position = (position.x as f32, position.y as f32).into();
-                                self.input(&mut state, &event, &input_data);
+                                self.input(&mut state, &mut app_state, &event, &input_data);
                             }
 
                             ref event @ WindowEvent::MouseInput { device_id, state: mouse_state, button, modifiers } => {
                                 input_data.mouse_button = button;
                                 input_data.mouse_state = mouse_state;
-                                self.input(&mut state, &event, &input_data);
+                                self.input(&mut state, &mut app_state, &event, &input_data);
                             }
 
                             WindowEvent::Focused(is_focused) => {
@@ -77,21 +86,21 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                             }
 
                             WindowEvent::Resized( physical_size ) => {
-                                self.resize(&mut state, &mut graphics,
+                                self.resize(&mut state, &mut app_state,
                                             physical_size.width as i32,
                                             physical_size.height as i32);
                             }
 
                             WindowEvent::ScaleFactorChanged { scale_factor, ..  } => {
-                                self.scale(&mut state, &mut graphics, scale_factor);
+                                self.scale(&mut state, &mut app_state, scale_factor);
                             }
 
                             WindowEvent::ModifiersChanged(new_modifiers) => {
                                 input_data.modifiers = new_modifiers;
                             }
 
-                            event @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &event, &input_data); }
-                            _ => if focused { self.input(&mut state, &event, &input_data); }
+                            event @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &mut app_state, &event, &input_data); }
+                            _ => if focused { self.input(&mut state, &mut app_state, &event, &input_data); }
                         }
                     }
 
@@ -101,39 +110,40 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
         });
     }
 
-    fn resize(&mut self, state: &mut S, graphics: &mut Context, width: i32, height: i32) {
+    fn resize(&mut self, state: &mut S, app: &mut AppState<S, I>, width: i32, height: i32) {
         if width > 0 && height > 0 {
             self.width = width;
             self.height = height;
+            let graphics = &mut app.graphics;
             graphics.surface_configuration.width = width as u32;
             graphics.surface_configuration.height = height as u32;
             graphics.surface.configure(&graphics.device, &graphics.surface_configuration);
 
             for screen in &mut self.screens {
-                screen.resize(state, graphics, width, height);
+                screen.resize(state, app, width, height);
             }
         }
     }
 
-    fn scale(&mut self, state: &mut S, graphics: &mut Context, scale: f64) {
-        graphics.scale_factor = scale;
+    fn scale(&mut self, state: &mut S, app: &mut AppState<S, I>, scale: f64) {
+        app.graphics.scale_factor = scale;
         for screen in &mut self.screens {
-            screen.scale(state, graphics, scale);
+            screen.scale(state, app, scale);
         }
     }
     
-    fn mouse(&mut self, state: &mut S, x_delta: f32, y_delta: f32) {
+    fn mouse(&mut self, state: &mut S, app: &mut AppState<S, I>, x_delta: f32, y_delta: f32) {
         for screen in &mut self.screens {
-            screen.mouse(state, x_delta, y_delta);
+            screen.mouse(state, app, x_delta, y_delta);
         }
     }
 
-    fn input(&mut self, state: &mut S, event: &WindowEvent, input: &Input) {
+    fn input(&mut self, state: &mut S, app: &mut AppState<S, I>, event: &WindowEvent, input: &Input) {
         for screen in &mut self.screens {
-            screen.input(state, event, input);
+            screen.input(state, app, event, input);
             if let WindowEvent::KeyboardInput { input: key_input, .. } = event {
                 if let Some(key) = key_input.virtual_keycode {
-                    if let Some(bindings) = self.bindings.get_mut(&screen.identifier()) {
+                    if let Some(bindings) = app.bindings.get_mut(&screen.identifier()) {
                         if let Some(action) = bindings.get_mut(&(key, input.modifiers)) {
                             if key_input.state == ElementState::Pressed {
                                 action.invoke(state);

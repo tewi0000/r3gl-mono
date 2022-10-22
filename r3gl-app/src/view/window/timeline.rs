@@ -20,7 +20,7 @@ impl TimelineWindow {
     }
 }
 
-impl Window<State> for TimelineWindow {
+impl Window<&mut State> for TimelineWindow {
     type Title = &'static str;
     fn title() -> Self::Title {
         return "Timeline";

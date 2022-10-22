@@ -1,5 +1,5 @@
 use cgmath::{vec3, Quaternion, Zero, vec4, Vector2, vec2, MetricSpace};
-use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, texture::Texture, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection, utils}, collider::collide, input::Input};
+use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, texture::Texture, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection, utils}, collider::collide, input::Input, app::AppState};
 use winit::event::{WindowEvent, MouseButton, ElementState};
 
 use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier};
@@ -68,14 +68,14 @@ impl TaikoScreen {
 }
 
 impl Screen<State, Identifier> for TaikoScreen {
-    fn render(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context) {
-        utils::submit(&graphics.queue, &graphics.device, |encoder| {
+    fn render(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, view: &wgpu::TextureView) {
+        utils::submit(&app.graphics.queue, &app.graphics.device, |encoder| {
             utils::render(encoder, &view, None, |mut render_pass| {
                 /* Hit position */
                 self.scene.camera.position.x = 0.0;                       // Manipulate camera
                 self.pipeline_model.attach(&mut render_pass);             // Attach to renderpass
-                self.pipeline_model.update(&graphics.queue, &self.scene); // Update camera (! buffred !)
-                state.textures.t_hit_position.bind(&mut render_pass, 1);            // Bind texture
+                self.pipeline_model.update(&app.graphics.queue, &self.scene); // Update camera (! buffred !)
+                state.textures.t_hit_position.bind(&mut render_pass, 1);  // Bind texture
                 self.mesh_model_hit.draw(&mut render_pass);               // Draw
 
                 /* Circles */
@@ -84,7 +84,7 @@ impl Screen<State, Identifier> for TaikoScreen {
                 // Scene
                 let time = state.editor.get_time();
                 self.scene.camera.position.x = -((time as f32 * SCALE) - OFFSET);
-                self.pipeline_taiko.update(&graphics.queue, &self.scene);
+                self.pipeline_taiko.update(&app.graphics.queue, &self.scene);
                 
                 // Textures
                 state.textures.t_circle.bind(&mut render_pass, 1);
@@ -113,18 +113,18 @@ impl Screen<State, Identifier> for TaikoScreen {
                         });
                     }
 
-                    self.mesh_circle.bake_instances(&graphics.device);
+                    self.mesh_circle.bake_instances(&app.graphics.device);
                     self.mesh_circle.draw(&mut render_pass);
                 }
 
                 /* Selection */
                 self.pipeline_model.attach(&mut render_pass);         // Attach to renderpass
                 state.textures.t_selection_box.bind(&mut render_pass, 1);           // Bind texture
-                self.mesh_model_selection_box.bake_instances(&graphics.device);
+                self.mesh_model_selection_box.bake_instances(&app.graphics.device);
                 self.mesh_model_selection_box.draw(&mut render_pass); // Draw
 
                 self.pipeline_field.attach(&mut render_pass);             // Attach to renderpass
-                self.pipeline_field.update(&graphics.queue, &self.scene); // Update camera (! buffred !)
+                self.pipeline_field.update(&app.graphics.queue, &self.scene); // Update camera (! buffred !)
                 state.textures.t_selection.bind(&mut render_pass, 1);               // Bind texture
 
                 // Draw
@@ -141,14 +141,14 @@ impl Screen<State, Identifier> for TaikoScreen {
                     }
                 }
 
-                self.mesh_model_selection.bake_instances(&graphics.device);
+                self.mesh_model_selection.bake_instances(&app.graphics.device);
                 self.mesh_model_selection.draw(&mut render_pass);
             });
         });
     }
 
     #[allow(unused_variables)]
-    fn input(&mut self, state: &mut State, event: &WindowEvent, input: &Input) {
+    fn input(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, event: &WindowEvent, input: &Input) {
         #[allow(deprecated)]
         match event {
             WindowEvent::CursorMoved { device_id, position, modifiers: _ } => {
@@ -245,7 +245,7 @@ impl Screen<State, Identifier> for TaikoScreen {
     }
 
     #[allow(unused_variables)]
-    fn resize(&mut self, state: &mut State, graphics: &mut Context, width: i32, height: i32) {
+    fn resize(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, width: i32, height: i32) {
         self.scene.projection.resize(width as u32, height as u32);
     }
 }

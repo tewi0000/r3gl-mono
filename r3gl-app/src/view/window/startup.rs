@@ -15,7 +15,7 @@ impl StartupWindow {
     }
 }
 
-impl Window<State> for StartupWindow {
+impl Window<&mut State> for StartupWindow {
     type Title = &'static str;
     fn title() -> Self::Title {
         return "Startup";

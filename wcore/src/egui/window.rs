@@ -15,11 +15,11 @@ pub trait Window<State>: View<State> {
     fn get_visible(&self) -> bool;
 
     #[allow(unused_variables)]
-    fn show(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context, ui: &mut egui::Ui);
+    fn show(&mut self, state: State, view: &wgpu::TextureView, graphics: &mut Context, ui: &mut egui::Ui);
 }
 
 impl<T: Window<State>, State> View<State> for T  {
-    fn show(&mut self, state: &mut State, view: &wgpu::TextureView, graphics: &mut Context, ctx: &egui::Context) {
+    fn show(&mut self, state: State, view: &wgpu::TextureView, graphics: &mut Context, ctx: &egui::Context) {
         let mut show_startup = self.get_visible();
         Self::build(egui::Window::new(Self::title()), ctx)
           .open(&mut show_startup)
