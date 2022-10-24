@@ -4,7 +4,7 @@ use instant::Duration;
 use r3gl_audio::{Audio, Player};
 use wcore::{clock::{SyncClock, Clock}};
 
-use crate::{project::project_manager::ProjectManager, beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject}};
+use crate::{project::project_manager::ProjectManager, beatmap::{beatmap::Beatmap, osu_taiko::hitobject::HitObject}};
 
 pub struct Editor {
     // TODO: replace this with game specific editor

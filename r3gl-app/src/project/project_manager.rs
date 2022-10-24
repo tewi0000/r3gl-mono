@@ -2,7 +2,7 @@ use std::{path::{PathBuf, Path}, fs};
 
 use serde::{Deserialize, Serialize};
 
-use crate::beatmap::{parser::osu_taiko::OsuTaikoParser, beatmap::Beatmap, taiko::hitobject::HitObject};
+use crate::beatmap::{osu_taiko::parser::OsuTaikoParser, beatmap::Beatmap, osu_taiko::hitobject::HitObject};
 
 use super::project::Project;
 
