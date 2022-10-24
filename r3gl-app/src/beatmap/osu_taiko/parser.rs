@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use intbits::Bits;
 
-use crate::beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject};
+use crate::beatmap::{beatmap::Beatmap, osu_taiko::hitobject::HitObject};
 
 pub struct OsuTaikoParser {}
 

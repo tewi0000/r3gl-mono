@@ -1,5 +1,4 @@
-pub mod parser;
 pub mod beatmap;
-pub mod taiko;
+pub mod osu_taiko;
 
 type Time = u32; // in milliseconds
