@@ -17,8 +17,6 @@ pub struct TaikoScreen {
     
     pub scene: Scene2D,
     
-
-    
     pub mesh_circle: InstancedMesh<Circle, CircleRaw, Vertex>,
     pub mesh_model_hit: InstancedMesh<Model, ModelRaw, Vertex>,
     pub mesh_model_selection: InstancedMesh<Model, ModelRaw, Vertex>,
@@ -72,18 +70,18 @@ impl Screen<State, Identifier> for TaikoScreen {
         utils::submit(&app.graphics.queue, &app.graphics.device, |encoder| {
             utils::render(encoder, &view, None, |mut render_pass| {
                 /* Hit position */
-                self.scene.camera.position.x = 0.0;                       // Manipulate camera
-                self.pipeline_model.attach(&mut render_pass);             // Attach to renderpass
+                self.scene.camera.position.x = 0.0;                           // Manipulate camera
+                self.pipeline_model.attach(&mut render_pass);                 // Attach to renderpass
                 self.pipeline_model.update(&app.graphics.queue, &self.scene); // Update camera (! buffred !)
-                state.textures.t_hit_position.bind(&mut render_pass, 1);  // Bind texture
-                self.mesh_model_hit.draw(&mut render_pass);               // Draw
+                state.textures.t_hit_position.bind(&mut render_pass, 1);      // Bind texture
+                self.mesh_model_hit.draw(&mut render_pass);                   // Draw
 
                 /* Circles */
                 self.pipeline_taiko.attach(&mut render_pass);
 
                 // Scene
                 let time = state.editor.get_time();
-                self.scene.camera.position.x = -((time as f32 * SCALE) - OFFSET);
+                self.scene.camera.position.x = -((time.as_ms() as f32 * SCALE) - OFFSET);
                 self.pipeline_taiko.update(&app.graphics.queue, &self.scene);
                 
                 // Textures
@@ -93,39 +91,37 @@ impl Screen<State, Identifier> for TaikoScreen {
                 state.textures.t_big_overlay.bind(&mut render_pass, 4);
 
                 // Drawing
-                if let Some(beatmap) = &state.editor.beatmap {
-                    self.mesh_circle.instances.clear();
-                    for obj in beatmap.objects.iter().rev() {
-                        if time > obj.time {
-                            continue;
-                        }
-
-                        self.mesh_circle.instances.push(Circle {
-                            position: vec3(obj.time as f32 * SCALE, 200.0, 0.0), 
-                            rotation: Quaternion::zero(),
-                            scale: if obj.big { vec3(CIRCLE_SIZE * 1.55, CIRCLE_SIZE * 1.55, 1.0) }
-                                   else       { vec3(CIRCLE_SIZE       , CIRCLE_SIZE       , 1.0) },
-
-                            color: if obj.kat { vec4(0.0, 0.47, 0.67, 1.0) }
-                                   else       { vec4(0.92, 0.0, 0.27, 1.0) },
-
-                            finisher: obj.big,
-                        });
+                self.mesh_circle.instances.clear();
+                for obj in state.editor.objects.iter().rev() {
+                    if time > obj.time {
+                        continue;
                     }
 
-                    self.mesh_circle.bake_instances(&app.graphics.device);
-                    self.mesh_circle.draw(&mut render_pass);
+                    self.mesh_circle.instances.push(Circle {
+                        position: vec3(obj.time.as_ms() as f32 * SCALE, 200.0, 0.0),
+                        rotation: Quaternion::zero(),
+                        scale: if obj.big { vec3(CIRCLE_SIZE * 1.55, CIRCLE_SIZE * 1.55, 1.0) }
+                               else       { vec3(CIRCLE_SIZE       , CIRCLE_SIZE       , 1.0) },
+
+                        color: if obj.kat { vec4(0.0, 0.47, 0.67, 1.0) }
+                               else       { vec4(0.92, 0.0, 0.27, 1.0) },
+
+                        finisher: obj.big,
+                    });
                 }
 
+                self.mesh_circle.bake_instances(&app.graphics.device);
+                self.mesh_circle.draw(&mut render_pass);
+
                 /* Selection */
-                self.pipeline_model.attach(&mut render_pass);         // Attach to renderpass
+                self.pipeline_model.attach(&mut render_pass);                       // Attach to renderpass
                 state.textures.t_selection_box.bind(&mut render_pass, 1);           // Bind texture
                 self.mesh_model_selection_box.bake_instances(&app.graphics.device);
-                self.mesh_model_selection_box.draw(&mut render_pass); // Draw
+                self.mesh_model_selection_box.draw(&mut render_pass);               // Draw
 
-                self.pipeline_field.attach(&mut render_pass);             // Attach to renderpass
+                self.pipeline_field.attach(&mut render_pass);                 // Attach to renderpass
                 self.pipeline_field.update(&app.graphics.queue, &self.scene); // Update camera (! buffred !)
-                state.textures.t_selection.bind(&mut render_pass, 1);               // Bind texture
+                state.textures.t_selection.bind(&mut render_pass, 1);         // Bind texture
 
                 // Draw
                 self.mesh_model_selection.instances.clear();
@@ -190,7 +186,7 @@ impl Screen<State, Identifier> for TaikoScreen {
                     }
                     
                     let time = state.editor.get_time();
-                    let offset = -((time as f32 * SCALE) - OFFSET);
+                    let offset = -((time.as_ms() as f32 * SCALE) - OFFSET);
                     self.selection.clear();
                     self.selection = self.mesh_circle.instances.iter().enumerate().filter_map(|(i, x)| {
                         let mut pos = x.position.truncate();
@@ -206,7 +202,7 @@ impl Screen<State, Identifier> for TaikoScreen {
 
             WindowEvent::MouseInput { device_id, state: button_state, button, modifiers: _ } => {
                 let time = state.editor.get_time();
-                let offset = -((time as f32 * SCALE) - OFFSET);
+                let offset = -((time.as_ms() as f32 * SCALE) - OFFSET);
                 if *button == MouseButton::Left {
                     match *button_state {
                         ElementState::Pressed => {

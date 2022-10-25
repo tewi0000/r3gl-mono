@@ -31,7 +31,7 @@ struct AudioBuffer {
 }
 
 impl AudioBuffer {
-    fn new(song: &Audio, sample_rate: u32, channel_count: usize) -> Result<AudioBuffer> {
+    fn new(song: &AudioData, sample_rate: u32, channel_count: usize) -> Result<AudioBuffer> {
         // Should produce blocks of at least about 1024 samples x 2 channels.
         const DECODE_BLOCK_SIZE: usize = 1029 * 48000 / 44100 * 2;
 
@@ -115,7 +115,7 @@ impl AudioBuffer {
     }
 }
 
-struct PlayerState {
+struct AudioState {
     audio_buffer  : RwLock<Option<AudioBuffer>>,
     
     position      : RwLock<usize>,
@@ -126,9 +126,9 @@ struct PlayerState {
     channel_count : usize,
 }
 
-impl PlayerState {
-    fn new(channel_count: u32, sample_rate: u32) -> PlayerState {
-        return PlayerState {
+impl AudioState {
+    fn new(channel_count: u32, sample_rate: u32) -> AudioState {
+        return AudioState {
             audio_buffer  : RwLock::new(None),
             position      : RwLock::new(0),
             paused        : RwLock::new(true),
@@ -169,17 +169,17 @@ impl PlayerState {
         }
     }
 
-    fn decode_song(&self, song: &Audio) -> Result<AudioBuffer> {
+    fn decode_song(&self, song: &AudioData) -> Result<AudioBuffer> {
         return AudioBuffer::new(song, self.sample_rate, self.channel_count);
     }
     
-    fn load(&self, song: &Audio) -> Result<()> {
+    fn load(&self, song: &AudioData) -> Result<()> {
         let samples = self.decode_song(song)?;
         *self.position.write().unwrap() = 0; 
         *self.audio_buffer.write().unwrap() = Some(samples);
         return Ok(());
     }
-    fn play(&self, song: &Audio) -> Result<()> {
+    fn play(&self, song: &AudioData) -> Result<()> {
         self.set_paused(false);
         return self.load(song);
     }
@@ -200,13 +200,13 @@ impl PlayerState {
     }
 }
 
-pub struct Player {
+pub struct Audio {
     _stream		 : Sticky<Box<dyn StreamTrait>>,
-    player_state : Arc<PlayerState>,
+    player_state : Arc<AudioState>,
 }
 
-impl Player {
-    pub fn new() -> Result<Player> {
+impl Audio {
+    pub fn new() -> Result<Audio> {
         let device = {
             let mut selected_host = cpal::default_host();
             for host in cpal::available_hosts() {
@@ -265,7 +265,7 @@ impl Player {
         let channel_count = supported_config.channels();
         let config = supported_config.into();
         let err_fn = |err| error!("Playback error: {}", err);
-        let player_state = Arc::new(PlayerState::new(channel_count as u32, sample_rate));
+        let player_state = Arc::new(AudioState::new(channel_count as u32, sample_rate));
         info!("SR, CC, SF: {sample_rate}, {channel_count}, {sample_format:?}");
 
         let stream = {
@@ -277,7 +277,7 @@ impl Player {
 
         stream.play()?;
 
-        return Ok(Player {
+        return Ok(Audio {
             _stream: Sticky::new(Box::new(stream)),
             player_state: player_state,
         });
@@ -309,10 +309,10 @@ impl Player {
         self.player_state.seek(samples);
     }
 
-    pub fn load(&self, song: &Audio) -> Result<()> {
+    pub fn load(&self, song: &AudioData) -> Result<()> {
         return self.player_state.load(song);
     }
-    pub fn play(&self, song: &Audio) -> Result<()> {
+    pub fn play(&self, song: &AudioData) -> Result<()> {
         return self.player_state.play(song);
     }
     pub fn stop(&self) {
@@ -330,14 +330,14 @@ impl Player {
 }
 
 #[derive(Debug, Clone)]
-pub struct Audio {
+pub struct AudioData {
     samples: Vec<Vec<f32>>,
     sample_rate: u32,
     channel_count: usize,
 }
 
-impl Audio {
-    pub fn new(reader: Box<dyn MediaSource>, hint: &Hint) -> Result<Audio> {
+impl AudioData {
+    pub fn new(reader: Box<dyn MediaSource>, hint: &Hint) -> Result<AudioData> {
         let media_source_stream = MediaSourceStream::new(reader, MediaSourceStreamOptions::default());
         let options = FormatOptions { enable_gapless: true, ..FormatOptions::default() };
         let meta = MetadataOptions::default();
@@ -375,7 +375,7 @@ impl Audio {
                     let mut song_samples = vec![Vec::new(); spec.channels.count()];
                     decode_buffer(buffer, spec, &mut song_samples);
                     
-                    break Audio {
+                    break AudioData {
                         samples: song_samples,
                         sample_rate: spec.rate,
                         channel_count: spec.channels.count(),
@@ -409,7 +409,7 @@ impl Audio {
         return Ok(song);
     }
 
-    pub fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Audio> {
+    pub fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<AudioData> {
         let mut hint = Hint::new();
         if let Some(extension) = path.as_ref().extension().and_then(|s| s.to_str()) {
             hint.with_extension(extension);

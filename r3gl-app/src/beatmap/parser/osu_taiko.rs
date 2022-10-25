@@ -2,14 +2,19 @@ use std::path::PathBuf;
 
 use intbits::Bits;
 
-use crate::beatmap::{beatmap::Beatmap, taiko::hitobject::HitObject};
+use crate::beatmap::{beatmap::Beatmap, Time};
 
-pub struct OsuTaikoParser {}
+pub struct TaikoCircle {
+    pub time: Time,
+    pub kat: bool,
+    pub big: bool,
+}
 
 // This is horrible, please help
-impl OsuTaikoParser {
-    pub fn parse(data: &str) -> Beatmap<HitObject> {
+impl TaikoCircle {
+    pub fn parse(data: &str) -> (Beatmap, Vec<TaikoCircle>) {
         let mut beatmap = Beatmap::default();
+        let mut objects = Vec::<TaikoCircle>::new();
         
         let mut objects_section = false;
         for line in data.lines() {
@@ -22,8 +27,8 @@ impl OsuTaikoParser {
                     parts.next();
                     if let Some(hit_sound) = parts.next() {
                         let hit_sound: u32 = hit_sound.parse().unwrap();
-                        beatmap.objects.push(HitObject {
-                            time,
+                        objects.push(TaikoCircle {
+                            time: Time::from_ms(time),
                             kat: hit_sound.bit(1) || hit_sound.bit(3),
                             big: hit_sound.bit(2),
                         });
@@ -50,7 +55,7 @@ impl OsuTaikoParser {
             }
         }
 
-        return beatmap;
+        return (beatmap, objects);
     }
 }
 

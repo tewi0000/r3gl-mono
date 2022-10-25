@@ -2,7 +2,7 @@ use std::{path::{PathBuf, Path}, fs};
 
 use serde::{Deserialize, Serialize};
 
-use crate::beatmap::{parser::osu_taiko::OsuTaikoParser, beatmap::Beatmap, taiko::hitobject::HitObject};
+use crate::{beatmap::{parser::osu_taiko::TaikoCircle, beatmap::Beatmap}};
 
 use super::project::Project;
 
@@ -31,11 +31,11 @@ impl Default for ProjectManager {
 }
 
 impl ProjectManager {
-    pub fn open(&mut self, path: impl AsRef<Path>) -> Beatmap<HitObject> {
+    pub fn open(&mut self, path: impl AsRef<Path>) -> (Beatmap, Vec<TaikoCircle>) {
         // TODO: handle errors case properly
         let path = path.as_ref();
         let data = fs::read_to_string(&path).unwrap();
-        let beatmap = OsuTaikoParser::parse(&data);
+        let (beatmap, objects) = TaikoCircle::parse(&data);
         let project = Project::from_path(path, format!("{} - {}", &beatmap.artist, &beatmap.title)).unwrap();
 
 
@@ -58,6 +58,6 @@ impl ProjectManager {
 
         self.current = Some(project);
 
-        return beatmap;
+        return (beatmap, objects);
     }
 }
