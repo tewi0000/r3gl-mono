@@ -26,7 +26,7 @@ impl Window<&mut State> for TimelineWindow {
         return "Timeline";
     }
 
-    fn build<'a>(window: egui::Window<'a>, ctx: &'_ egui::Context) -> egui::Window<'a> {
+    fn build<'b>(window: egui::Window<'b>, ctx: &'_ egui::Context) -> egui::Window<'b> {
         let rect = ctx.available_rect();
         let size = rect.size();
 

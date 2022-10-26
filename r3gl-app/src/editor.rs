@@ -4,12 +4,11 @@ use instant::Duration;
 use r3gl_audio::{Audio, AudioData};
 use wcore::clock::{SyncClock, Clock};
 
-use crate::{beatmap::{Time, beatmap::Beatmap, parser::osu_taiko::TaikoCircle}, project::project_manager::ProjectManager};
+use crate::{beatmap::{Time, beatmap::Beatmap, component::HitObject}, project::project_manager::ProjectManager};
 
 pub struct Editor {
-    // TODO: replace this with game specific editor
-    pub objects: Vec<TaikoCircle>,
     pub beatmap: Option<Beatmap>,
+    pub hitobjects: Option<Vec<Box<dyn HitObject>>>,
     
     // Audio/Time managment
     audio: Audio,
@@ -19,8 +18,8 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Self {
         return Self {
-            objects: vec![],
             beatmap: None,
+            hitobjects: None,
 
             audio: Audio::new().unwrap(),
             clock: SyncClock::new(),
@@ -30,7 +29,7 @@ impl Editor {
     // Project Management
     pub fn open_project(&mut self, path: impl AsRef<Path>, projects: &mut ProjectManager) {
         // Parse beatmap
-        let (beatmap, objetcs) = projects.open(&path);
+        let (beatmap, game_data) = projects.open(&path);
         
         // Load audio
         let mp3 = path.as_ref().parent().unwrap().join(&beatmap.audio);
@@ -43,13 +42,13 @@ impl Editor {
             .as_millis() as u32);
 
         // Set as current
-        self.objects = objetcs;
         self.beatmap = Some(beatmap);
+        self.hitobjects = Some(game_data);
     }
     pub fn close_project(&mut self, projects: &mut ProjectManager) {
         projects.current = None;
+        self.hitobjects = None;
         self.beatmap = None;
-        self.objects.clear();
 
         let time = self.audio.get_time();
         self.clock.set_paused(true, time.as_millis() as u32);

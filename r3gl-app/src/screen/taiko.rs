@@ -2,7 +2,7 @@ use cgmath::{vec3, Quaternion, Zero, vec4, Vector2, vec2, MetricSpace};
 use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection, utils}, collider::collide, input::Input, app::AppState};
 use winit::event::{WindowEvent, MouseButton, ElementState};
 
-use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier};
+use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier, beatmap::component::adapter::taiko::TaikoVariantAdapter};
 use color_eyre::eyre::Result;
 
 const OFFSET: f32 = 200.0;
@@ -91,27 +91,38 @@ impl Screen<State, Identifier> for TaikoScreen {
                 state.textures.t_big_overlay.bind(&mut render_pass, 4);
 
                 // Drawing
-                self.mesh_circle.instances.clear();
-                for obj in state.editor.objects.iter().rev() {
-                    if time > obj.time {
-                        continue;
+                if let Some(objects) = &state.editor.hitobjects {
+                    if objects[0].time().is_some()
+                    && objects[0].variant().is_some() {
+                        self.mesh_circle.instances.clear();
+                        for obj in objects.iter().rev() {
+                            let obj_time = obj.time().unwrap().0;
+                            let obj_variant = obj.variant().unwrap();
+
+                            if time > obj_time {
+                                continue;
+                            }
+
+                            self.mesh_circle.instances.push(Circle {
+                                position: vec3(obj_time.as_ms() as f32 * SCALE, 200.0, 0.0),
+                                rotation: Quaternion::zero(),
+                                scale: if obj_variant.is_big() { vec3(CIRCLE_SIZE * 1.55, CIRCLE_SIZE * 1.55, 1.0) }
+                                else                           { vec3(CIRCLE_SIZE       , CIRCLE_SIZE       , 1.0) },
+
+                                color: if obj_variant.is_kat() { vec4(0.0, 0.47, 0.67, 1.0) }
+                                else                           { vec4(0.92, 0.0, 0.27, 1.0) },
+
+                                finisher: obj_variant.is_big(),
+                            });
+                        }
+
+                        self.mesh_circle.bake_instances(&app.graphics.device);
+                        self.mesh_circle.draw(&mut render_pass);
                     }
 
-                    self.mesh_circle.instances.push(Circle {
-                        position: vec3(obj.time.as_ms() as f32 * SCALE, 200.0, 0.0),
-                        rotation: Quaternion::zero(),
-                        scale: if obj.big { vec3(CIRCLE_SIZE * 1.55, CIRCLE_SIZE * 1.55, 1.0) }
-                               else       { vec3(CIRCLE_SIZE       , CIRCLE_SIZE       , 1.0) },
-
-                        color: if obj.kat { vec4(0.0, 0.47, 0.67, 1.0) }
-                               else       { vec4(0.92, 0.0, 0.27, 1.0) },
-
-                        finisher: obj.big,
-                    });
+                } else if !self.mesh_circle.instances.is_empty() {
+                    self.mesh_circle.instances.clear();
                 }
-
-                self.mesh_circle.bake_instances(&app.graphics.device);
-                self.mesh_circle.draw(&mut render_pass);
 
                 /* Selection */
                 self.pipeline_model.attach(&mut render_pass);                       // Attach to renderpass
