@@ -1,6 +1,7 @@
+use crossbeam::channel::{Receiver, bounded};
 use instant::Instant;
 use winit::dpi::LogicalSize;
-use winit::event::{DeviceEvent, Event, WindowEvent, ElementState};
+use winit::event::{DeviceEvent, Event, WindowEvent, ElementState, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
@@ -11,6 +12,8 @@ use crate::screen::{Screen, Identifier, KeyCombination};
 
 pub struct AppState<S, I: Identifier> {
     pub bindings: BindingManager<S, I>,
+    pub grab_key: Receiver<KeyCombination>,
+    pub want_key: bool,
     pub graphics: Context,
 }
 
@@ -30,9 +33,13 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
             let window = create_window(&event_loop, self.width, self.height);
             let mut graphics = Context::new(&window).await.unwrap();
             
+            let (sender, receiver) = bounded(1);
+
             let mut state = state(&mut graphics);
             let mut app_state = AppState {
                 bindings: Default::default(),
+                grab_key: receiver,
+                want_key: false,
                 graphics: graphics
             };
             
@@ -88,9 +95,7 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                             }
 
                             WindowEvent::Resized( physical_size ) => {
-                                self.resize(&mut state, &mut app_state,
-                                            physical_size.width as i32,
-                                            physical_size.height as i32);
+                                self.resize(&mut state, &mut app_state, physical_size.width as i32, physical_size.height as i32);
                             }
 
                             WindowEvent::ScaleFactorChanged { scale_factor, ..  } => {
@@ -101,7 +106,27 @@ impl<'a, S, I: Identifier> App<'a, S, I> {
                                 input_data.modifiers = new_modifiers;
                             }
 
-                            event @ WindowEvent::DroppedFile(_) => { self.input(&mut state, &mut app_state, &event, &mut input_data); }
+                            ref event @ WindowEvent::KeyboardInput { device_id, input, is_synthetic } => if focused {
+                                if app_state.want_key { // Used for stuff like binds
+                                    if let Some(vkeycode) = input.virtual_keycode {
+                                        // TODO: use our own input, quick fix
+                                        #[allow(unused_must_use)]
+                                        if vkeycode != VirtualKeyCode::LShift   && vkeycode != VirtualKeyCode::RShift
+                                        && vkeycode != VirtualKeyCode::LAlt     && vkeycode != VirtualKeyCode::RAlt
+                                        && vkeycode != VirtualKeyCode::LControl && vkeycode != VirtualKeyCode::RControl {
+                                            sender.try_send(KeyCombination::from((vkeycode, input_data.modifiers)));
+                                            app_state.want_key = false;
+                                        }
+                                    }
+                                }
+
+                                self.input(&mut state, &mut app_state, &event, &mut input_data);
+                            }
+
+                            event @ WindowEvent::DroppedFile(_) => {
+                                self.input(&mut state, &mut app_state, &event, &mut input_data);
+                            }
+
                             _ => if focused { self.input(&mut state, &mut app_state, &event, &mut input_data); }
                         }
                     }

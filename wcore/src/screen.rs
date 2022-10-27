@@ -24,6 +24,12 @@ pub type Bindings<S> = HashMap<KeyCombination, Action<S>>;
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 pub struct KeyCode(VirtualKeyCode);
 
+impl From<VirtualKeyCode> for KeyCode {
+    fn from(value: VirtualKeyCode) -> Self {
+        return Self(value);
+    }
+}
+
 impl Display for KeyCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {

@@ -51,7 +51,7 @@ impl Screen<State, Identifier> for EGuiScreen {
             
             View::show(&mut self.menu, (state, &mut self.windows), view, graphics, ctx);
             View::show(&mut self.windows.startup, state, view, graphics, ctx);
-            View::show(&mut self.windows.bindings, (state, &mut app.bindings), view, graphics, ctx);
+            View::show(&mut self.windows.bindings, (state, &mut app.bindings, &app.grab_key, &mut app.want_key), view, graphics, ctx);
             View::show(&mut self.windows.timeline, state, view, graphics, ctx);
         });
     }
