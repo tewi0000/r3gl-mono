@@ -37,9 +37,8 @@ impl Editor {
         
         // Update clock data
         self.clock.set_time(0);
-        self.clock.set_length(self.audio.length()
-            .ok().unwrap_or(Duration::ZERO)
-            .as_millis() as u32);
+        self.clock.set_paused(true, 0);
+        self.clock.set_length(self.audio.length().as_millis() as u32);
 
         // Set as current
         self.beatmap = Some(beatmap);
@@ -59,10 +58,6 @@ impl Editor {
 
     // Time
     pub fn toggle_paused(&mut self) {
-          if self.audio.length().is_err() {
-            return;
-        }
-
         let time = self.audio.get_time();
         self.clock.toggle_paused(time.as_millis() as u32);
         self.audio.pause();

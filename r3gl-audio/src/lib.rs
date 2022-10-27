@@ -1,16 +1,18 @@
 use fragile::Sticky;
 use instant::Duration;
+use itertools::Itertools;
+use rubato::{SincFixedIn, InterpolationParameters, InterpolationType, WindowFunction, Resampler};
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
-use color_eyre::eyre::{Report, Result, ContextCompat};
+use color_eyre::eyre::{Report, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Sample, SampleFormat, SupportedStreamConfigRange};
 use log::{error, info, warn};
-use samplerate::{ConverterType, Samplerate};
 use symphonia::core::audio::{SampleBuffer, AudioBufferRef, SignalSpec};
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::errors::Error as SymphoniaError;
@@ -27,60 +29,67 @@ struct AudioBuffer {
     buffer   : VecDeque<f32>,
     
     done     : bool,
-    len      : usize,
 }
 
 impl AudioBuffer {
-    fn new(song: &AudioData, sample_rate: u32, channel_count: usize) -> Result<AudioBuffer> {
-        // Should produce blocks of at least about 1024 samples x 2 channels.
-        const DECODE_BLOCK_SIZE: usize = 1029 * 48000 / 44100 * 2;
+    fn new(audio: &AudioData, sample_rate: u32, channel_count: usize) -> Result<(AudioBuffer, usize)> {
+        let resample_ratio = sample_rate as f64 / audio.sample_rate as f64;
+        let decode_block_size: usize = (1024.0 * resample_ratio) as usize;
 
-        // Reorder samples, this is really fast and gets us ownership over the song
-        let samples = {
-            let sample_count = song.samples[0].len();
-            let mut samples = vec![0.0; channel_count * sample_count];
-            for chan in 0 .. channel_count {
-                if chan < 2 || chan < song.samples.len() {
-                    for sample in 0..sample_count {
-                        samples[sample * channel_count as usize + chan] = song.samples[chan % song.samples.len()][sample];
-                    }
-                };
-            }
+        // Get ownership of samples
+        let mut samples = audio.samples.clone();
 
-            samples
-        };
-        
-        let len = samples.len() * sample_rate as usize / song.sample_rate as usize;
+        // All channles must have equal sample count
+        assert!(samples.windows(2).all(|w| w[0].len() == w[1].len()));
+        let resampled_interleaved_length = samples[0].len() * sample_rate as usize / audio.sample_rate as usize * 2;
+
+        // Pad with zeroes
+        let unpadded_length = samples[0].len();
+        let padded_sample_count = ((unpadded_length as f32 / decode_block_size as f32).ceil() * decode_block_size as f32) as usize;
+        for channel_buffer in &mut samples {
+            channel_buffer.resize(padded_sample_count, 0.0);
+        }
+
         let (tx, rx) = mpsc::channel();
-        let source_sample_rate = song.sample_rate;
         thread::spawn(move || {
-            let converter = Samplerate::new(
-                ConverterType::SincBestQuality,
-                source_sample_rate,
-                sample_rate,
-                channel_count,
+            let mut resampler = SincFixedIn::<f32>::new(
+                    resample_ratio,
+            2.0,
+            InterpolationParameters {
+                        sinc_len: 256,
+                f_cutoff: 0.95,
+                interpolation: InterpolationType::Linear,
+                oversampling_factor: 256,
+                window: WindowFunction::BlackmanHarris2,
+            },
+            decode_block_size,
+            channel_count,
             ).unwrap();
 
-            let last = samples.len() / DECODE_BLOCK_SIZE;
+            let last = unpadded_length / decode_block_size;
+            let mut buffer = resampler.output_buffer_allocate();
             for i in 0 ..= last {
-                let pos = i * DECODE_BLOCK_SIZE;
-                let samples = &samples[pos..((pos + DECODE_BLOCK_SIZE).min(samples.len()))];
-                let processed_samples = if   i == last { converter.process_last(samples) }
-                                        else 		   { converter.process	   (samples) }.unwrap();
+                let pos = i * decode_block_size;
+                resampler.process_into_buffer(&[
+                    &samples[0][pos .. (pos + decode_block_size)],
+                    &samples[1][pos .. (pos + decode_block_size)]
+                ], &mut buffer, None).unwrap();
+
+                let processed = buffer[1].iter().cloned().interleave(
+                                buffer[1].iter().cloned()).collect();
                 
-                // Dropping the other end of the channel will stop decoding
-                if tx.send(Some(processed_samples)).is_err() {
+                // Stop decoding if it's not needed anymore
+                if tx.send(Some(processed)).is_err() {
                     break;
                 }
             }
         });
 
-        return Ok(AudioBuffer {
-            channel	 : Mutex::new(rx),
-            buffer	 : VecDeque::new(),
-            done	 : false,
-            len,
-        });
+        return Ok((AudioBuffer {
+            channel  : Mutex::new(rx),
+            buffer   : VecDeque::new(),
+            done     : false,
+        }, resampled_interleaved_length));
     }
 
     fn read_samples(&mut self, pos: usize, count: usize) -> (Vec<f32>, bool) {
@@ -109,20 +118,17 @@ impl AudioBuffer {
         
         return (vec, done);
     }
-
-    fn len(&self) -> usize {
-        return self.len;
-    }
 }
 
 struct AudioState {
     audio_buffer  : RwLock<Option<AudioBuffer>>,
+    buffer_length : AtomicUsize,
     
-    position      : RwLock<usize>,
-    paused        : RwLock<bool>,
-    finished      : RwLock<bool>,
+    position      : AtomicUsize,
+    paused        : AtomicBool,
+    finished      : AtomicBool,
 
-    sample_rate	  : u32,
+    sample_rate   : u32,
     channel_count : usize,
 }
 
@@ -130,28 +136,29 @@ impl AudioState {
     fn new(channel_count: u32, sample_rate: u32) -> AudioState {
         return AudioState {
             audio_buffer  : RwLock::new(None),
-            position      : RwLock::new(0),
-            paused        : RwLock::new(true),
-            finished      : RwLock::new(false),
+            buffer_length : AtomicUsize::new(0),
+            position      : AtomicUsize::new(0),
+            paused        : AtomicBool::new(true),
+            finished      : AtomicBool::new(false),
             sample_rate   : sample_rate,
             channel_count : channel_count as usize,
         };
     }
     
     fn write_samples<T: Sample>(&self, data: &mut [T]) {
-        if *self.paused.read().unwrap() {
+        if self.paused.load(Ordering::Relaxed) {
             for sample in data.iter_mut() {
                 *sample = Sample::from(&0.0);
             }
 
             return;
         }
-        
+
         let mut audio_buffer = self.audio_buffer.write().unwrap();
         if let Some(audio_buffer) = audio_buffer.as_mut() {
             let data_len = data.len();
-            let mut position = self.position.write().unwrap();
-            let (samples, is_final) = audio_buffer.read_samples(*position, data_len);
+            let position = self.position.load(Ordering::Acquire);
+            let (samples, is_final) = audio_buffer.read_samples(position, data_len);
             for (i, sample) in data.iter_mut().enumerate() {
                 if i >= samples.len() {
                     break;
@@ -159,28 +166,31 @@ impl AudioState {
 
                 *sample = Sample::from(&samples[i]);
             }
-            
-            *position += data_len;
+
+            self.position.store(position + data_len, Ordering::Release);
 
             if is_final {
-                *self.paused.write().unwrap() = true;
-                *self.finished.write().unwrap() = true;
+                self.paused.store(true, Ordering::Relaxed);
+                self.finished.store(true, Ordering::Relaxed);
             }
         }
     }
 
-    fn decode_song(&self, song: &AudioData) -> Result<AudioBuffer> {
+    fn decode_song(&self, song: &AudioData) -> Result<(AudioBuffer, usize)> {
         return AudioBuffer::new(song, self.sample_rate, self.channel_count);
     }
     
     fn load(&self, song: &AudioData) -> Result<()> {
-        let samples = self.decode_song(song)?;
-        *self.position.write().unwrap() = 0; 
+        let (samples, length) = self.decode_song(song)?;
+        self.position.store(0, Ordering::SeqCst);
+        self.set_paused(true);
         *self.audio_buffer.write().unwrap() = Some(samples);
+        self.buffer_length.store(length, Ordering::SeqCst);
         return Ok(());
     }
     fn play(&self, song: &AudioData) -> Result<()> {
-        self.set_paused(false);
+        self.position.store(0, Ordering::SeqCst);
+        self.set_paused(true);
         return self.load(song);
     }
     fn stop(&self) {
@@ -189,19 +199,19 @@ impl AudioState {
         *self.audio_buffer.write().unwrap() = None;
     }
     fn pause(&self) {
-        let mut paused = self.paused.write().unwrap();
-        *paused = !*paused;
+        let paused = self.paused.load(Ordering::Acquire);
+        self.paused.store(!paused, Ordering::Release);
     }
     fn set_paused(&self, state: bool) {
-        *self.paused.write().unwrap() = state;
+        self.paused.store(state, Ordering::Relaxed);
     }
     fn seek(&self, position: usize) {
-        *self.position.write().unwrap() = position;
+        self.position.store(position, Ordering::Release);
     }
 }
 
 pub struct Audio {
-    _stream		 : Sticky<Box<dyn StreamTrait>>,
+    _stream      : Sticky<Box<dyn StreamTrait>>,
     player_state : Arc<AudioState>,
 }
 
@@ -288,19 +298,16 @@ impl Audio {
     }
 
     pub fn finished(&self) -> bool {
-        let finished = *self.player_state.finished.read().unwrap();
+        let finished = self.player_state.finished.load(Ordering::Relaxed);
         return finished;
     }
-    pub fn length(&self) -> Result<Duration> {
+    pub fn length(&self) -> Duration {
         let duration_per_sample = self.sample_length();
-        let audio_buffer = self.player_state.audio_buffer.read().unwrap();
-        return audio_buffer.as_ref().map(|audio_buffer| {
-            audio_buffer.len() as u32 * duration_per_sample
-        }).context("No audio loaded");
+        return self.player_state.buffer_length.load(Ordering::Relaxed) as u32 * duration_per_sample;
     }
     pub fn get_time(&self) -> Duration {
         let duration_per_sample = self.sample_length();
-        let position = *self.player_state.position.read().unwrap();
+        let position = self.player_state.position.load(Ordering::Acquire);
         return position as u32 * duration_per_sample;
     }
     pub fn set_time(&mut self, time: Duration) {
@@ -325,7 +332,7 @@ impl Audio {
         self.player_state.set_paused(state);
     }
     pub fn is_paused(&self) -> bool {
-        return *self.player_state.paused.read().unwrap();
+        return self.player_state.paused.load(Ordering::Relaxed);
     }
 }
 
@@ -347,7 +354,7 @@ impl AudioData {
             &probe
                 .format
                 .default_track()
-                .ok_or_else(|| Report::msg("No default track in media file"))?
+                .ok_or_else(|| Report::msg("No default track in audio file"))?
                 .codec_params,
             &DecoderOptions::default(),
         )?;
@@ -362,7 +369,7 @@ impl AudioData {
                     }
                 }
             } else {
-                warn!("Empty packet encountered while loading song!");
+                warn!("Empty packet encountered while loading audio");
             }
         }
 
@@ -382,7 +389,7 @@ impl AudioData {
                     };
                 }
                 
-                Err(SymphoniaError::IoError(_)) => return Err(Report::msg("No song data decoded")),
+                Err(SymphoniaError::IoError(_)) => return Err(Report::msg("No audio data decoded")),
                 Err(e) => return Err(e.into()),
             }
         };
