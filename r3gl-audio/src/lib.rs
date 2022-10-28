@@ -1,3 +1,4 @@
+use crossbeam::channel::{Receiver, unbounded};
 use fragile::Sticky;
 use instant::Duration;
 use itertools::Itertools;
@@ -5,7 +6,6 @@ use rubato::{SincFixedIn, InterpolationParameters, InterpolationType, WindowFunc
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering, AtomicUsize};
-use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
@@ -33,7 +33,8 @@ struct AudioBuffer {
 
 impl AudioBuffer {
     fn new(audio: &AudioData, sample_rate: u32, channel_count: usize) -> Result<(AudioBuffer, usize)> {
-        let resample_ratio = sample_rate as f64 / audio.sample_rate as f64;
+        let speed = 1.0; // TODO: implement rates
+        let resample_ratio = sample_rate as f64 / audio.sample_rate as f64 / speed;
         let decode_block_size: usize = (1024.0 * resample_ratio) as usize;
 
         // Get ownership of samples
@@ -41,7 +42,7 @@ impl AudioBuffer {
 
         // All channles must have equal sample count
         assert!(samples.windows(2).all(|w| w[0].len() == w[1].len()));
-        let resampled_interleaved_length = samples[0].len() * sample_rate as usize / audio.sample_rate as usize * 2;
+        let resampled_interleaved_length = (samples[0].len() as f64 * resample_ratio * 2.0).ceil() as usize;
 
         // Pad with zeroes
         let unpadded_length = samples[0].len();
@@ -50,13 +51,13 @@ impl AudioBuffer {
             channel_buffer.resize(padded_sample_count, 0.0);
         }
 
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = unbounded();
         thread::spawn(move || {
             let mut resampler = SincFixedIn::<f32>::new(
-                    resample_ratio,
+            resample_ratio,
             2.0,
             InterpolationParameters {
-                        sinc_len: 256,
+                sinc_len: 256,
                 f_cutoff: 0.95,
                 interpolation: InterpolationType::Linear,
                 oversampling_factor: 256,
@@ -180,18 +181,13 @@ impl AudioState {
         return AudioBuffer::new(song, self.sample_rate, self.channel_count);
     }
     
-    fn load(&self, song: &AudioData) -> Result<()> {
+    fn play(&self, song: &AudioData) -> Result<()> {
         let (samples, length) = self.decode_song(song)?;
         self.position.store(0, Ordering::SeqCst);
         self.set_paused(true);
         *self.audio_buffer.write().unwrap() = Some(samples);
         self.buffer_length.store(length, Ordering::SeqCst);
         return Ok(());
-    }
-    fn play(&self, song: &AudioData) -> Result<()> {
-        self.position.store(0, Ordering::SeqCst);
-        self.set_paused(true);
-        return self.load(song);
     }
     fn stop(&self) {
         self.set_paused(true);
@@ -312,13 +308,10 @@ impl Audio {
     }
     pub fn set_time(&mut self, time: Duration) {
         let duration_per_sample = self.sample_length();
-        let samples = (time.as_nanos() / duration_per_sample.as_nanos()) as usize;
+        let samples = (time.as_nanos() / duration_per_sample.as_nanos()) as f64 as usize;
         self.player_state.seek(samples);
     }
 
-    pub fn load(&self, song: &AudioData) -> Result<()> {
-        return self.player_state.load(song);
-    }
     pub fn play(&self, song: &AudioData) -> Result<()> {
         return self.player_state.play(song);
     }

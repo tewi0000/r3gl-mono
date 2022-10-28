@@ -1890,6 +1890,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "cpal",
+ "crossbeam",
  "delegate",
  "fragile",
  "instant",

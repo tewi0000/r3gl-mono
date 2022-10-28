@@ -33,7 +33,7 @@ impl Editor {
         
         // Load audio
         let mp3 = path.as_ref().parent().unwrap().join(&beatmap.audio);
-        self.audio.load(&AudioData::from_file(mp3).unwrap()).unwrap();
+        self.audio.play(&AudioData::from_file(mp3).unwrap()).unwrap();
         
         // Update clock data
         self.clock.set_time(0);

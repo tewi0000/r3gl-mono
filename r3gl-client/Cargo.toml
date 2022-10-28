@@ -14,3 +14,27 @@ str-macro = "1.0.0"
 dynamic-arena = "0.1.6"
 maplit = "1.0.2"
 winit = "0.27.3"
+
+[profile.dev.package.r3gl-audio]
+opt-level = 3
+overflow-checks = false
+
+[profile.dev.package.symphonia]
+opt-level = 3
+overflow-checks = false
+
+[profile.dev.package.rubato]
+opt-level = 3
+overflow-checks = false
+
+[profile.dev.package.cpal]
+opt-level = 3
+overflow-checks = false
+
+[profile.dev.package.itertools]
+opt-level = 3
+overflow-checks = false
+
+[profile.dev.package.crossbeam]
+opt-level = 3
+overflow-checks = false

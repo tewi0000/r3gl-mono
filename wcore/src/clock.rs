@@ -59,7 +59,7 @@ impl Clock for SyncClock {
 
         self.last_pause = Instant::now();
         self.last_time = time;
-    }
+     }
 
     fn toggle_paused(&mut self, time: u32) {
         self.paused = !self.paused;
