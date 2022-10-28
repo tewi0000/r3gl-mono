@@ -17,24 +17,30 @@ winit = "0.27.3"
 
 [profile.dev.package.r3gl-audio]
 opt-level = 3
+debug = false
 overflow-checks = false
 
-[profile.dev.package.symphonia]
+[profile.dev.package.symphonia-bundle-mp3]
 opt-level = 3
+debug = false
 overflow-checks = false
 
 [profile.dev.package.rubato]
 opt-level = 3
+debug = false
 overflow-checks = false
 
 [profile.dev.package.cpal]
 opt-level = 3
+debug = false
 overflow-checks = false
 
 [profile.dev.package.itertools]
 opt-level = 3
+debug = false
 overflow-checks = false
 
 [profile.dev.package.crossbeam]
 opt-level = 3
+debug = false
 overflow-checks = false
