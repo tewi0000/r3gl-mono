@@ -1,14 +1,14 @@
-use cgmath::{vec3, Quaternion, Zero, vec4, Vector2, vec2, MetricSpace};
-use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection, utils}, collider::collide, input::Input, app::AppState};
-use winit::event::{WindowEvent, MouseButton, ElementState};
+use cgmath::{vec3, Quaternion, Zero, vec4};
+use wcore::{screen::Screen, graphics::{context::Context, bindable::Bindable, drawable::Drawable, scene::Scene2D, primitive::mesh::{instanced::InstancedMesh, data::{vertex::Vertex, model::{ModelRaw, Model}}}, pipeline::{model::ModelPipeline, shader::scene::SceneSlot, Pipeline}, camera::Projection, utils}, input::Input, app::AppState, unit::Unit};
+use winit::event::WindowEvent;
 
-use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier, beatmap::component::adapter::taiko::TaikoVariantAdapter};
+use crate::{state::State, graphics::{primitive::mesh::taiko::{Circle, CircleRaw}, pipeline::taiko::TaikoCirclePipeline}, identifier::Identifier, beatmap::component::adapter::taiko::TaikoVariantAdapter, unit::selection::SelectionUnit};
 use color_eyre::eyre::Result;
 
-const OFFSET: f32 = 200.0;
-const SCALE: f32 = 0.8;
-const CIRCLE_SIZE: f32 = 128.0 * 0.75;
-const DEAD_ZONE: f32 = 20.0;
+pub const OFFSET: f32 = 200.0;
+pub const SCALE: f32 = 0.8;
+pub const CIRCLE_SIZE: f32 = 128.0 * 0.75;
+pub const DEAD_ZONE: f32 = 20.0;
 
 pub struct TaikoScreen {
     pub pipeline_taiko: TaikoCirclePipeline,
@@ -19,17 +19,12 @@ pub struct TaikoScreen {
     
     pub mesh_circle: InstancedMesh<Circle, CircleRaw, Vertex>,
     pub mesh_model_hit: InstancedMesh<Model, ModelRaw, Vertex>,
-    pub mesh_model_selection: InstancedMesh<Model, ModelRaw, Vertex>,
-    pub mesh_model_selection_box: InstancedMesh<Model, ModelRaw, Vertex>,
 
-    pub selection: Vec<usize>,
-    pub selection_start: Vector2<f32>,
+    selection_unit: SelectionUnit
 }
 
 impl TaikoScreen {
     pub fn new(graphics: &Context) -> Result<Self> {
-        let mesh_model_selection_box = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(0.0, 1.0), vec![]);
-        let mesh_model_selection = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(-0.5, 0.5), vec![]);
         let mesh_circle = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(-0.5, 0.5), vec![]);
         let mesh_model_hit = InstancedMesh::new(&graphics.device, Vertex::vertices_rect(-0.5, 0.5), vec![Model {
             position: vec3(OFFSET, OFFSET, 0.0),
@@ -46,7 +41,6 @@ impl TaikoScreen {
         let pipeline_field = ModelPipeline::new(&graphics.device, &graphics.surface_configuration, &scene);
         let pipeline_model = ModelPipeline::new(&graphics.device, &graphics.surface_configuration, &scene);
 
-        let selection = vec![];
 
         return Ok(Self {
             pipeline_taiko,
@@ -56,11 +50,8 @@ impl TaikoScreen {
 
             mesh_circle,
             mesh_model_hit,
-            mesh_model_selection,
-            mesh_model_selection_box,
 
-            selection,
-            selection_start: (0.0, 0.0,).into(),
+            selection_unit: SelectionUnit::new(graphics),
         });
     }
 }
@@ -83,7 +74,7 @@ impl Screen<State, Identifier> for TaikoScreen {
                 let time = state.editor.get_time();
                 self.scene.camera.position.x = -((time.as_ms() as f32 * SCALE) - OFFSET);
                 self.pipeline_taiko.update(&app.graphics.queue, &self.scene);
-                
+
                 // Textures
                 state.textures.t_circle.bind(&mut render_pass, 1);
                 state.textures.t_overlay.bind(&mut render_pass, 2);
@@ -93,7 +84,7 @@ impl Screen<State, Identifier> for TaikoScreen {
                 // Drawing
                 if let Some(objects) = &state.editor.hitobjects {
                     if objects[0].time().is_some()
-                    && objects[0].variant().is_some() {
+                       && objects[0].variant().is_some() {
                         self.mesh_circle.instances.clear();
                         for obj in objects.iter().rev() {
                             let obj_time = obj.time().unwrap().0;
@@ -124,133 +115,18 @@ impl Screen<State, Identifier> for TaikoScreen {
                     self.mesh_circle.instances.clear();
                 }
 
-                /* Selection */
-                self.pipeline_model.attach(&mut render_pass);                       // Attach to renderpass
-                state.textures.t_selection_box.bind(&mut render_pass, 1);           // Bind texture
-                self.mesh_model_selection_box.bake_instances(&app.graphics.device);
-                self.mesh_model_selection_box.draw(&mut render_pass);               // Draw
-
-                self.pipeline_field.attach(&mut render_pass);                 // Attach to renderpass
-                self.pipeline_field.update(&app.graphics.queue, &self.scene); // Update camera (! buffred !)
-                state.textures.t_selection.bind(&mut render_pass, 1);         // Bind texture
-
-                // Draw
-                self.mesh_model_selection.instances.clear();
-                for index in self.selection.iter().rev() {
-                    if let Some(obj) = self.mesh_circle.instances.get(*index) {
-                        self.mesh_model_selection.instances.push(Model {
-                            position: obj.position, 
-                            rotation: obj.rotation,
-                            scale: obj.scale,
-    
-                            color: vec4(1.0, 1.0, 1.0, 1.0)
-                        });
-                    }
-                }
-
-                self.mesh_model_selection.bake_instances(&app.graphics.device);
-                self.mesh_model_selection.draw(&mut render_pass);
+                self.pipeline_model.attach(&mut render_pass);
+                self.selection_unit.render((&state.textures, &mut self.pipeline_field, &self.pipeline_model, &self.scene, &self.mesh_circle), &mut render_pass, &app.graphics);
             });
         });
     }
 
     #[allow(unused_variables)]
-    fn input(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, event: &WindowEvent, input: &Input) -> bool { 'e: {
-        #[allow(deprecated)]
-        match event {
-            WindowEvent::CursorMoved { device_id, position, modifiers: _ } => {
-                if input.mouse_button == MouseButton::Left && input.mouse_state == ElementState::Pressed {
-                    if self.selection_start.distance(vec2(position.x as f32, position.y as f32)) < DEAD_ZONE {
-                        break 'e;
-                    }
+    fn input(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, event: &WindowEvent, input: &Input) -> bool {
+        self.selection_unit.input((state, &self.mesh_circle), event, input);
 
-                    self.mesh_model_selection_box.instances.push(Model {
-                        position: vec3(0.0, 0.0, 0.0),
-                        rotation: Quaternion::zero(),
-                        scale: vec3(0.0, 0.0, 1.0),
-                        color: vec4(1.0, 1.0, 1.0, 0.2)
-                    });
-
-                    let selection_box = &mut self.mesh_model_selection_box.instances[0];
-                    let size = input.cursor_position - self.selection_start;
-
-                    match (size.x > 0.0, size.y > 0.0) {
-                        (true, true) => {
-                            selection_box.position = self.selection_start.extend(0.0);
-                            selection_box.scale = (size).extend(0.0);
-                        }
-
-                        (true, false) => {
-                            selection_box.position = vec3(self.selection_start.x, self.selection_start.y + size.y, 0.0);
-                            selection_box.scale = vec3(size.x, size.y.abs(), 0.0);
-                        }
-                        
-                        (false, true) => {
-                            selection_box.position = vec3(self.selection_start.x + size.x, self.selection_start.y, 0.0);
-                            selection_box.scale = vec3(size.x.abs(), size.y, 0.0);
-                        }
-
-                        (false, false) => {
-                            selection_box.position = vec3(self.selection_start.x + size.x, self.selection_start.y + size.y, 0.0);
-                            selection_box.scale = vec3(size.x.abs(), size.y.abs(), 0.0);
-                        }
-                    }
-                    
-                    let time = state.editor.get_time();
-                    let offset = -((time.as_ms() as f32 * SCALE) - OFFSET);
-                    self.selection.clear();
-                    self.selection = self.mesh_circle.instances.iter().enumerate().filter_map(|(i, x)| {
-                        let mut pos = x.position.truncate();
-                        pos.x += offset;
-
-                        if collide::square(selection_box.position.truncate(), selection_box.scale.truncate(), pos) {
-                            Some(i)
-                        } else { None }
-                    }).collect();
-
-                }
-            }
-
-            WindowEvent::MouseInput { device_id, state: button_state, button, modifiers: _ } => {
-                let time = state.editor.get_time();
-                let offset = -((time.as_ms() as f32 * SCALE) - OFFSET);
-                if *button == MouseButton::Left {
-                    match *button_state {
-                        ElementState::Pressed => {
-                            self.selection_start = input.cursor_position;
-    
-                            let selection = self.mesh_circle.instances.iter().rev().position(|x| {
-                                collide::circle(vec2(x.position.x + offset, x.position.y), input.cursor_position, CIRCLE_SIZE / 2.0)
-                            });
-    
-                            if let Some(reverse_index) = selection {
-                                let len = self.mesh_circle.instances.len();
-                                if !input.modifiers.ctrl() {
-                                    self.selection.clear();
-                                }
-    
-                                let i = len - reverse_index - 1;
-                                if let Some(selected) = self.selection.iter().copied().position(|x| x == i) {
-                                         self.selection.remove(selected);
-                                } else { self.selection.push(i); }
-                            } else {
-                                if !input.modifiers.ctrl() {
-                                    self.selection.clear();
-                                }
-                            }
-                        }
-
-                        ElementState::Released => {
-                            self.mesh_model_selection_box.instances.clear();
-                        }
-                    }
-                }
-            },
-
-            _ => {}
-        }
-
-    } return true; }
+        return true;
+    }
 
     #[allow(unused_variables)]
     fn resize(&mut self, state: &mut State, app: &mut AppState<State, Identifier>, width: i32, height: i32) {

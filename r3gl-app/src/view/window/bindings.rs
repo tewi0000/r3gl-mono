@@ -1,6 +1,6 @@
 use crossbeam::channel::{Receiver};
 use egui::RichText;
-use wcore::{graphics::context::Context, egui::window::Window, bindings::BindingManager, screen::KeyCombination};
+use wcore::{graphics::context::Context, egui::window::Window, bindings::{BindingManager, KeyCombination}};
 
 use crate::{state::State, identifier::Identifier};
 

@@ -5,10 +5,10 @@ use winit::event::{DeviceEvent, Event, WindowEvent, ElementState, VirtualKeyCode
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
-use crate::bindings::BindingManager;
+use crate::bindings::{BindingManager, KeyCombination};
 use crate::graphics::context::Context;
 use crate::input::Input;
-use crate::screen::{Screen, Identifier, KeyCombination};
+use crate::screen::{Screen, Identifier};
 
 pub struct AppState<S, I: Identifier> {
     pub bindings: BindingManager<S, I>,

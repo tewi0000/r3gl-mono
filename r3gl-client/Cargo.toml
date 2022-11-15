@@ -14,6 +14,7 @@ str-macro = "1.0.0"
 dynamic-arena = "0.1.6"
 maplit = "1.0.2"
 winit = "0.27.3"
+fxhash = "0.2.1"
 
 [profile.dev.package.r3gl-audio]
 opt-level = 3
